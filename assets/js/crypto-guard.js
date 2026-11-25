@@ -396,6 +396,36 @@
     return "Rp " + n.toLocaleString("id-ID");
   }
 
+  function parseRupiah(val) {
+    if (typeof val === "number") return Math.round(val) || 0;
+    const digits = String(val || "").replace(/[^0-9]/g, "");
+    return digits ? parseInt(digits, 10) : 0;
+  }
+
+  function setRupiahInput(el, num) {
+    if (!el) return;
+    if (num === "" || num === null || num === undefined) {
+      el.value = "";
+      return;
+    }
+    el.value = formatRupiah(parseRupiah(num));
+  }
+
+  function bindRupiahInputs(selector) {
+    document.querySelectorAll(selector || ".rupiah-input").forEach(el => {
+      if (el.dataset.rpBound) return;
+      el.dataset.rpBound = "1";
+      el.addEventListener("input", function () {
+        const raw = String(el.value || "").replace(/[^0-9]/g, "");
+        if (!raw) {
+          el.value = "";
+          return;
+        }
+        el.value = formatRupiah(parseInt(raw, 10));
+      });
+    });
+  }
+
   function formatDateTime(isoStr) {
     if (!isoStr) return "-";
     const d = new Date(isoStr);
@@ -519,6 +549,9 @@
     CAR_PLACEHOLDER_SVG: CAR_PLACEHOLDER_SVG,
     escapeHtml: escapeHtml,
     formatRupiah: formatRupiah,
+    parseRupiah: parseRupiah,
+    setRupiahInput: setRupiahInput,
+    bindRupiahInputs: bindRupiahInputs,
     formatDateTime: formatDateTime,
     toLocalInputValue: toLocalInputValue,
     normalizePhone: normalizePhone,

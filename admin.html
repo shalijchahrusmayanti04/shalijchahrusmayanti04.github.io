@@ -255,14 +255,14 @@
               </div>
               <div class="form-group">
                 <label>Biaya Antar Default (Rp)</label>
-                <input type="number" id="setBiayaAntar" class="form-control" min="0" required />
+                <input type="text" inputmode="numeric" id="setBiayaAntar" class="form-control rupiah-input" min="0" required />
               </div>
             </div>
 
             <div class="form-grid-2">
               <div class="form-group">
                 <label>Biaya Jasa Sopir per Hari (Rp)</label>
-                <input type="number" id="setBiayaSopir" class="form-control" min="0" required />
+                <input type="text" inputmode="numeric" id="setBiayaSopir" class="form-control rupiah-input" min="0" required />
               </div>
               <div class="form-group">
                 <label>Ubah PIN Admin (Kosongkan jika tidak diubah)</label>
@@ -326,11 +326,11 @@
           <div class="form-grid-2">
             <div class="form-group">
               <label>Harga Sewa 24 Jam (Rp) *</label>
-              <input type="number" id="carPrice24" class="form-control" required placeholder="400000" />
+              <input type="text" inputmode="numeric" id="carPrice24" class="form-control rupiah-input" required placeholder="Rp 400.000" />
             </div>
             <div class="form-group">
               <label>Harga Sewa 12 Jam (Rp)</label>
-              <input type="number" id="carPrice12" class="form-control" placeholder="275000" />
+              <input type="text" inputmode="numeric" id="carPrice12" class="form-control rupiah-input" placeholder="Rp 275.000" />
             </div>
           </div>
 
@@ -420,7 +420,7 @@
             </div>
             <div class="form-group">
               <label>Biaya Antar (Rp)</label>
-              <input type="number" id="trxDeliveryFee" class="form-control" value="0" min="0" />
+              <input type="text" inputmode="numeric" id="trxDeliveryFee" class="form-control rupiah-input" value="Rp 0" />
             </div>
           </div>
 
@@ -439,7 +439,7 @@
             </div>
             <div class="form-group">
               <label>Total Biaya Sopir (Rp)</label>
-              <input type="number" id="trxDriverFee" class="form-control" value="0" min="0" />
+              <input type="text" inputmode="numeric" id="trxDriverFee" class="form-control rupiah-input" value="0" min="0" />
             </div>
           </div>
 
@@ -450,7 +450,7 @@
             </div>
             <div class="form-group">
               <label>DP / Pembayaran Awal (Rp)</label>
-              <input type="number" id="trxDp" class="form-control" value="0" min="0" />
+              <input type="text" inputmode="numeric" id="trxDp" class="form-control rupiah-input" value="0" min="0" />
             </div>
           </div>
 
@@ -498,18 +498,18 @@
           <div class="form-grid-2">
             <div class="form-group">
               <label>Override Denda (Opsional, kosong = otomatis)</label>
-              <input type="number" id="ciDendaOverride" class="form-control" min="0" placeholder="Otomatis sesuai rumus" />
+              <input type="text" inputmode="numeric" id="ciDendaOverride" class="form-control rupiah-input" min="0" placeholder="Otomatis sesuai rumus" />
             </div>
             <div class="form-group">
               <label>Biaya Tambahan Lain (BBM/Kerusakan)</label>
-              <input type="number" id="ciExtraFee" class="form-control" min="0" value="0" />
+              <input type="text" inputmode="numeric" id="ciExtraFee" class="form-control rupiah-input" min="0" value="0" />
             </div>
           </div>
 
           <div class="form-grid-2">
             <div class="form-group">
               <label>Pembayaran Pelunasan Sekarang (Rp)</label>
-              <input type="number" id="ciPayNow" class="form-control" min="0" value="0" />
+              <input type="text" inputmode="numeric" id="ciPayNow" class="form-control rupiah-input" min="0" value="0" />
             </div>
             <div class="form-group">
               <label>Status Mobil Setelah Kembali</label>

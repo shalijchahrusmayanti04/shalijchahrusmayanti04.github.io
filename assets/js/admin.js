@@ -19,6 +19,7 @@
       return;
     }
     CONFIG = unlocked.config;
+    G.bindRupiahInputs();
     bindGlobalEvents();
 
     if (TOKEN) {
@@ -59,10 +60,10 @@
     el("trxDeliveryMethod").addEventListener("change", () => {
       const isDiantar = el("trxDeliveryMethod").value === "Diantar";
       el("trxDeliveryAddrWrap").classList.toggle("hidden", !isDiantar);
-      if (isDiantar && Number(el("trxDeliveryFee").value) === 0) {
-        el("trxDeliveryFee").value = Number(DATA.settings.biaya_antar_default) || 50000;
+      if (isDiantar && G.parseRupiah(el("trxDeliveryFee").value) === 0) {
+        G.setRupiahInput(el("trxDeliveryFee"), Number(DATA.settings.biaya_antar_default) || 50000);
       } else if (!isDiantar) {
-        el("trxDeliveryFee").value = 0;
+        G.setRupiahInput(el("trxDeliveryFee"), 0);
       }
       updateNewTrxSummary();
     });
@@ -417,11 +418,11 @@
     el("trxStart").value = G.toLocalInputValue(now);
     el("trxEnd").value = G.toLocalInputValue(tomorrow);
     el("trxDeliveryMethod").value = "Ambil Sendiri";
-    el("trxDeliveryFee").value = 0;
+    G.setRupiahInput(el("trxDeliveryFee"), 0);
     el("trxDeliveryAddrWrap").classList.add("hidden");
     el("trxDriverMethod").value = "Lepas Kunci";
-    el("trxDriverFee").value = 0;
-    el("trxDp").value = 0;
+    G.setRupiahInput(el("trxDriverFee"), 0);
+    G.setRupiahInput(el("trxDp"), 0);
     el("trxKmAwal").value = 0;
 
     updateNewTrxSummary();
@@ -437,9 +438,9 @@
 
   function updateDriverFeeDefault() {
     if (el("trxDriverMethod").value === "Dengan Sopir") {
-      el("trxDriverFee").value = getTrxDays() * (Number(DATA.settings.biaya_sopir_per_hari) || 150000);
+      G.setRupiahInput(el("trxDriverFee"), getTrxDays() * (Number(DATA.settings.biaya_sopir_per_hari) || 150000));
     } else {
-      el("trxDriverFee").value = 0;
+      G.setRupiahInput(el("trxDriverFee"), 0);
     }
   }
 
@@ -448,8 +449,8 @@
     const opt = el("trxCarId").selectedOptions[0];
     const rate = opt ? Number(opt.dataset.rate || 0) : 0;
     const base = days * rate;
-    const deliv = el("trxDeliveryMethod").value === "Diantar" ? (Number(el("trxDeliveryFee").value) || 0) : 0;
-    const drv = el("trxDriverMethod").value === "Dengan Sopir" ? (Number(el("trxDriverFee").value) || 0) : 0;
+    const deliv = el("trxDeliveryMethod").value === "Diantar" ? G.parseRupiah(el("trxDeliveryFee").value) : 0;
+    const drv = el("trxDriverMethod").value === "Dengan Sopir" ? G.parseRupiah(el("trxDriverFee").value) : 0;
 
     el("trxSumDays").textContent = days + " Hari";
     el("trxSumBase").textContent = G.formatRupiah(base);
@@ -476,12 +477,12 @@
           tgl_jam_selesai: el("trxEnd").value,
           durasi_hari: getTrxDays(),
           metode_ambil: el("trxDeliveryMethod").value,
-          biaya_antar: Number(el("trxDeliveryFee").value) || 0,
+          biaya_antar: G.parseRupiah(el("trxDeliveryFee").value),
           alamat_antar: el("trxDeliveryAddr").value.trim(),
           layanan_sopir: el("trxDriverMethod").value,
-          biaya_sopir: Number(el("trxDriverFee").value) || 0,
+          biaya_sopir: G.parseRupiah(el("trxDriverFee").value),
           km_awal: Number(el("trxKmAwal").value) || 0,
-          dp_bayar: Number(el("trxDp").value) || 0
+          dp_bayar: G.parseRupiah(el("trxDp").value)
         }
       });
       if (!res.ok) throw new Error(res.error);
@@ -543,7 +544,8 @@
     el("ciReturnTime").value = G.toLocalInputValue(new Date());
     el("ciKmAkhir").value = ACTIVE_CI_TRX.km_awal || 0;
     el("ciDendaOverride").value = "";
-    el("ciExtraFee").value = 0;
+    G.setRupiahInput(el("ciExtraFee"), 0);
+    G.setRupiahInput(el("ciPayNow"), 0);
     el("ciNotes").value = "";
 
     el("ciInfoBox").innerHTML =
@@ -567,13 +569,13 @@
       rules.toleransi
     );
 
-    const overrideVal = el("ciDendaOverride").value;
-    const dendaFinal = overrideVal !== "" ? Number(overrideVal) : ov.denda;
-    const extraFee = Number(el("ciExtraFee").value) || 0;
+    const overrideRaw = el("ciDendaOverride").value.trim();
+    const dendaFinal = overrideRaw !== "" ? G.parseRupiah(overrideRaw) : ov.denda;
+    const extraFee = G.parseRupiah(el("ciExtraFee").value);
     const subtotalAwal = (Number(ACTIVE_CI_TRX.subtotal_sewa) || 0) + (Number(ACTIVE_CI_TRX.biaya_antar) || 0) + (Number(ACTIVE_CI_TRX.biaya_sopir) || 0);
     const totalAkhir = subtotalAwal + dendaFinal + extraFee;
     const sudahBayar = Number(ACTIVE_CI_TRX.dp_bayar) || 0;
-    const bayarSkrg = Number(el("ciPayNow").value) || 0;
+    const bayarSkrg = G.parseRupiah(el("ciPayNow").value);
     const sisa = Math.max(0, totalAkhir - sudahBayar - bayarSkrg);
 
     el("ciPenaltyPreview").innerHTML = `
@@ -597,9 +599,9 @@
           id_transaksi: el("ciTrxId").value,
           tgl_jam_kembali_aktual: el("ciReturnTime").value,
           km_akhir: Number(el("ciKmAkhir").value) || 0,
-          denda_override: el("ciDendaOverride").value,
-          biaya_tambahan_lain: Number(el("ciExtraFee").value) || 0,
-          bayar_tambahan: Number(el("ciPayNow").value) || 0,
+          denda_override: el("ciDendaOverride").value.trim() !== "" ? G.parseRupiah(el("ciDendaOverride").value) : "",
+          biaya_tambahan_lain: G.parseRupiah(el("ciExtraFee").value),
+          bayar_tambahan: G.parseRupiah(el("ciPayNow").value),
           status_mobil_kembali: el("ciCarStatus").value,
           catatan_kondisi: el("ciNotes").value.trim()
         }
@@ -685,8 +687,8 @@
         el("carYear").value = c.tahun || 2023;
         el("carTrans").value = c.transmisi || "Matic";
         el("carSeats").value = c.kapasitas || 5;
-        el("carPrice24").value = c.harga_24jam || 0;
-        el("carPrice12").value = c.harga_12jam || 0;
+        G.setRupiahInput(el("carPrice24"), c.harga_24jam || 0);
+        G.setRupiahInput(el("carPrice12"), c.harga_12jam || 0);
         el("carStatus").value = c.status || "Tersedia";
         el("carPhotoUrl").value = c.foto_url || "";
         el("carDesc").value = c.deskripsi || "";
@@ -725,8 +727,8 @@
           tahun: Number(el("carYear").value),
           transmisi: el("carTrans").value,
           kapasitas: Number(el("carSeats").value),
-          harga_24jam: Number(el("carPrice24").value),
-          harga_12jam: Number(el("carPrice12").value) || 0,
+          harga_24jam: G.parseRupiah(el("carPrice24").value),
+          harga_12jam: G.parseRupiah(el("carPrice12").value),
           status: el("carStatus").value,
           foto_url: el("carPhotoUrl").value.trim(),
           deskripsi: el("carDesc").value.trim()
@@ -903,8 +905,8 @@
     el("setPersenDenda").value = s.persen_denda_per_jam || 10;
     el("setToleransi").value = s.toleransi_menit || 30;
     el("setAmbang").value = s.ambang_pengingat_menit || 120;
-    el("setBiayaAntar").value = s.biaya_antar_default || 50000;
-    el("setBiayaSopir").value = s.biaya_sopir_per_hari || 150000;
+    G.setRupiahInput(el("setBiayaAntar"), s.biaya_antar_default || 50000);
+    G.setRupiahInput(el("setBiayaSopir"), s.biaya_sopir_per_hari || 150000);
     el("setPinBaru").value = "";
   }
 
@@ -922,8 +924,8 @@
           persen_denda_per_jam: el("setPersenDenda").value,
           toleransi_menit: el("setToleransi").value,
           ambang_pengingat_menit: el("setAmbang").value,
-          biaya_antar_default: el("setBiayaAntar").value,
-          biaya_sopir_per_hari: el("setBiayaSopir").value,
+          biaya_antar_default: G.parseRupiah(el("setBiayaAntar").value),
+          biaya_sopir_per_hari: G.parseRupiah(el("setBiayaSopir").value),
           admin_pin_baru: el("setPinBaru").value.trim()
         }
       });
