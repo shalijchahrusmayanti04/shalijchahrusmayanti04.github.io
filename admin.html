@@ -7,7 +7,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon-180.png" />
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon-precomposed.png" />
-  <link rel="icon" type="image/svg+xml" href="assets/img/icon.svg?v=20261125g" />
+  <link rel="icon" type="image/svg+xml" href="assets/img/icon.svg?v=20261125h" />
   <link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -16,7 +16,7 @@
   <script>
     try { document.documentElement.setAttribute("data-theme", localStorage.getItem("rb_theme_mode") || "light"); } catch (_) {}
   </script>
-  <link rel="stylesheet" href="assets/css/style.css?v=20261125g" />
+  <link rel="stylesheet" href="assets/css/style.css?v=20261125h" />
 </head>
 <body>
   <header class="navbar">
@@ -58,8 +58,14 @@
 
     <!-- Admin Workspace -->
     <div id="adminContent" class="hidden">
-      <!-- TAB 1: MONITOR JATUH TEMPO & WA -->
+      <!-- TAB 1: MONITOR JATUH TEMPO & KALENDER JADWAL -->
       <section id="tabMonitor" class="tab-panel">
+        <div class="subtab-bar" role="tablist" aria-label="Menu Monitor">
+          <button type="button" class="subtab-btn active" data-monsub="subMonitorActive">Monitor &amp; Jatuh Tempo</button>
+          <button type="button" class="subtab-btn" data-monsub="subMonitorCalendar">Kalender &amp; Jadwal <span id="monitorSchedBadge" class="subtab-badge hidden">0</span></button>
+        </div>
+
+        <div id="subMonitorActive" class="monsub-panel">
         <section class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-label">Armada Tersedia</div>
@@ -95,6 +101,61 @@
             <div class="text-muted">Memuat data...</div>
           </div>
         </div>
+        </div>
+
+        <div id="subMonitorCalendar" class="monsub-panel hidden">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 id="calMonthLabel">Kalender Jadwal Sewa</h3>
+                <div class="small text-muted">Pilih tanggal untuk lihat atau tambah catatan jadwal sewa.</div>
+              </div>
+              <div class="header-actions">
+                <button type="button" class="btn btn-ghost btn-sm" id="calPrevBtn" title="Bulan Sebelumnya" aria-label="Bulan Sebelumnya"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+                <button type="button" class="btn btn-ghost btn-sm" id="calTodayBtn">Hari Ini</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="calNextBtn" title="Bulan Berikutnya" aria-label="Bulan Berikutnya"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+                <button type="button" class="btn btn-primary btn-sm" id="calAddNoteBtn">+ Catatan Jadwal</button>
+              </div>
+            </div>
+            <div class="cal-legend">
+              <span class="cal-legend-item"><span class="cal-dot sched"></span> Terjadwal</span>
+              <span class="cal-legend-item"><span class="cal-dot active"></span> Sewa Aktif</span>
+              <span class="cal-legend-item"><span class="cal-dot pending"></span> Pending</span>
+              <span class="cal-legend-item"><span class="cal-dot note"></span> Notes Tanggal</span>
+            </div>
+            <div class="cal-weekdays">
+              <div class="cal-weekday">Sen</div>
+              <div class="cal-weekday">Sel</div>
+              <div class="cal-weekday">Rab</div>
+              <div class="cal-weekday">Kam</div>
+              <div class="cal-weekday">Jum</div>
+              <div class="cal-weekday">Sab</div>
+              <div class="cal-weekday">Min</div>
+            </div>
+            <div id="calGrid" class="cal-grid"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 id="calSelectedTitle">Agenda Tanggal Terpilih</h3>
+                <div class="small text-muted">Catatan jadwal &amp; transaksi sewa pada tanggal ini.</div>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" id="calAddForDayBtn">+ Tambah Catatan</button>
+            </div>
+            <div id="calSelectedList" class="cal-agenda-list"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3>Semua Jadwal Terjadwal</h3>
+                <div class="small text-muted">Daftar notes tanggal &amp; sewa berstatus Terjadwal.</div>
+              </div>
+            </div>
+            <div id="calUpcomingList" class="cal-agenda-list"></div>
+          </div>
+        </div>
       </section>
 
       <!-- TAB 2: TRANSAKSI -->
@@ -106,6 +167,7 @@
               <select id="trxStatusFilter" class="form-control" style="width:auto;">
                 <option value="ALL">Semua Status</option>
                 <option value="Pending">Pending (Booking Online)</option>
+                <option value="Terjadwal">Terjadwal</option>
                 <option value="Berjalan">Sedang Berjalan</option>
                 <option value="Selesai">Selesai</option>
                 <option value="Dibatalkan">Dibatalkan</option>
@@ -254,6 +316,7 @@
                   <th>Sopir</th>
                   <th>Denda</th>
                   <th>Total Akhir</th>
+                  <th>Metode Bayar</th>
                   <th>Bayar</th>
                 </tr>
               </thead>
@@ -601,6 +664,35 @@
             </div>
           </div>
 
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Cara Bayar DP</label>
+              <select id="editTrxDpMethod" class="form-control">
+                <option value="Tunai">Tunai</option>
+                <option value="Transfer">Transfer</option>
+                <option value="QRIS">QRIS</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Cara Bayar Transaksi / Pelunasan</label>
+              <select id="editTrxPayMethod" class="form-control">
+                <option value="Tunai">Tunai</option>
+                <option value="Transfer">Transfer</option>
+                <option value="QRIS">QRIS</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Status Sewa</label>
+            <select id="editTrxScheduleStatus" class="form-control">
+              <option value="Berjalan">Berjalan (Sedang Disewa)</option>
+              <option value="Terjadwal">Terjadwal</option>
+              <option value="Pending">Pending</option>
+              <option value="Selesai">Selesai</option>
+            </select>
+          </div>
+
           <div class="summary-box">
             <div class="summary-row"><span>Durasi Sewa</span><strong id="editTrxSumDays">1 Hari</strong></div>
             <div class="summary-row"><span>Subtotal Sewa Mobil</span><span id="editTrxSumBase">Rp 0</span></div>
@@ -709,6 +801,33 @@
             </div>
           </div>
 
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Cara Bayar DP</label>
+              <select id="trxDpMethod" class="form-control">
+                <option value="Tunai">Tunai</option>
+                <option value="Transfer">Transfer</option>
+                <option value="QRIS">QRIS</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Cara Bayar Transaksi</label>
+              <select id="trxPayMethod" class="form-control">
+                <option value="Tunai">Tunai</option>
+                <option value="Transfer">Transfer</option>
+                <option value="QRIS">QRIS</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Status Jadwal Sewa</label>
+            <select id="trxScheduleStatus" class="form-control">
+              <option value="Berjalan">Berjalan (Langsung Aktif)</option>
+              <option value="Terjadwal">Terjadwal (Booking Terjadwal)</option>
+            </select>
+          </div>
+
           <div class="summary-box">
             <div class="summary-row"><span>Durasi Sewa</span><strong id="trxSumDays">1 Hari</strong></div>
             <div class="summary-row"><span>Subtotal Sewa</span><span id="trxSumBase">Rp 0</span></div>
@@ -767,12 +886,21 @@
               <input type="text" inputmode="numeric" id="ciPayNow" class="form-control rupiah-input" min="0" value="0" />
             </div>
             <div class="form-group">
-              <label>Status Mobil Setelah Kembali</label>
-              <select id="ciCarStatus" class="form-control">
-                <option value="Tersedia">Tersedia (Siap Disewa)</option>
-                <option value="Servis">Servis / Perawatan</option>
+              <label>Cara Bayar Pelunasan</label>
+              <select id="ciPayMethod" class="form-control">
+                <option value="Tunai">Tunai</option>
+                <option value="Transfer">Transfer</option>
+                <option value="QRIS">QRIS</option>
               </select>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>Status Mobil Setelah Kembali</label>
+            <select id="ciCarStatus" class="form-control">
+              <option value="Tersedia">Tersedia (Siap Disewa)</option>
+              <option value="Servis">Servis / Perawatan</option>
+            </select>
           </div>
 
           <div class="form-group">
@@ -842,6 +970,91 @@
     </div>
   </div>
 
+  <!-- MODAL: CATATAN JADWAL TANGGAL SEWA -->
+  <div id="scheduleModal" class="modal-backdrop">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3 id="scheduleModalTitle">Catatan Jadwal Sewa</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__closeModal('scheduleModal')">Tutup</button>
+      </div>
+      <form id="scheduleForm">
+        <div class="modal-body">
+          <input type="hidden" id="schedId" />
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Tanggal Sewa *</label>
+              <input type="date" id="schedDate" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label>Jam (Opsional)</label>
+              <input type="time" id="schedTime" class="form-control" value="09:00" />
+            </div>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Unit Mobil (Opsional)</label>
+              <select id="schedCarId" class="form-control"></select>
+            </div>
+            <div class="form-group">
+              <label>Status Jadwal</label>
+              <select id="schedStatus" class="form-control">
+                <option value="Terjadwal">Terjadwal</option>
+                <option value="Selesai">Selesai</option>
+                <option value="Batal">Batal</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Nama Pelanggan (Opsional)</label>
+              <input type="text" id="schedCustomer" class="form-control" placeholder="Contoh: Andi" />
+            </div>
+            <div class="form-group">
+              <label>No. WhatsApp (Opsional)</label>
+              <input type="tel" id="schedWa" class="form-control" placeholder="08123456789" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Notes / Catatan Tanggal Sewa *</label>
+            <textarea id="schedNote" class="form-control" rows="3" required placeholder="Contoh: Booking terjadwal 2 hari, ambil jam 09:00..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="window.__closeModal('scheduleModal')">Batal</button>
+          <button type="submit" class="btn btn-primary" id="saveScheduleBtn">Simpan Jadwal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: KONFIRMASI PELUNASAN & CARA BAYAR -->
+  <div id="markPaidModal" class="modal-backdrop">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3>Pelunasan Transaksi</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__closeModal('markPaidModal')">Tutup</button>
+      </div>
+      <form id="markPaidForm">
+        <div class="modal-body">
+          <input type="hidden" id="mpTrxId" />
+          <div id="mpInfoBox" class="alert alert-info"></div>
+          <div class="form-group">
+            <label>Cara Bayar Pelunasan *</label>
+            <select id="mpPayMethod" class="form-control" required>
+              <option value="Tunai">Tunai</option>
+              <option value="Transfer">Transfer</option>
+              <option value="QRIS">QRIS</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="window.__closeModal('markPaidModal')">Batal</button>
+          <button type="submit" class="btn btn-success" id="saveMarkPaidBtn">Konfirmasi Lunas</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- MODAL: INVOICE / STRUK CETAK -->
   <div id="invoiceModal" class="modal-backdrop">
     <div class="modal">
@@ -859,8 +1072,8 @@
     </div>
   </div>
 
-  <script src="assets/js/crypto-guard.js?v=20261125g"></script>
-  <script src="assets/js/config.enc.js?v=20261125g"></script>
-  <script src="assets/js/admin.js?v=20261125g"></script>
+  <script src="assets/js/crypto-guard.js?v=20261125h"></script>
+  <script src="assets/js/config.enc.js?v=20261125h"></script>
+  <script src="assets/js/admin.js?v=20261125h"></script>
 </body>
 </html>

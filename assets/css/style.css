@@ -357,6 +357,8 @@ button, input, select, textarea {
   flex-direction: column;
   gap: 5px;
   margin-bottom: 12px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .form-group label {
@@ -367,6 +369,8 @@ button, input, select, textarea {
 
 .form-control {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   height: var(--control-h);
   min-height: var(--control-h);
   padding: 0 12px;
@@ -415,7 +419,7 @@ textarea.form-control {
 
 .form-grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -717,6 +721,7 @@ th {
   align-items: center;
   justify-content: center;
   padding: 14px;
+  overflow: hidden;
 }
 
 [data-theme="dark"] .modal-backdrop {
@@ -738,8 +743,20 @@ th {
   width: 100%;
   max-width: 580px;
   max-height: 92vh;
+  overflow-x: hidden !important;
   overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   box-shadow: var(--neu-out);
+}
+.modal > form,
+.modal-header,
+.modal-body,
+.modal-footer {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 [data-theme="dark"] .modal {
@@ -783,6 +800,8 @@ th {
 .summary-row {
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   font-size: 0.8rem;
   padding: 3px 0;
 }
@@ -972,7 +991,7 @@ html.is-ios textarea.form-control {
   .container { padding: 12px 11px 96px; }
   .container.container-public { padding-bottom: 28px; }
   .hero { padding: 14px 14px; border-radius: 16px; margin-bottom: 14px; }
-  .filter-bar, .form-grid-2, .upload-actions-grid { grid-template-columns: 1fr; }
+  .filter-bar, .form-grid-2, .upload-actions-grid { grid-template-columns: minmax(0, 1fr); }
   .drive-link-row { flex-direction: column; align-items: stretch; }
 
   .kpi-grid {
@@ -1371,6 +1390,9 @@ html.is-ios textarea.form-control {
 .ss-wrap {
   position: relative;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 .ss-wrap-auto {
   width: auto;
@@ -1394,6 +1416,8 @@ html.is-ios textarea.form-control {
 }
 .ss-trigger {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   height: var(--control-h);
   min-height: var(--control-h);
   padding: 0 12px;
@@ -1578,4 +1602,165 @@ html.is-ios .ss-search-input {
 .drive-link-row > * {
   min-width: 0;
   max-width: 100%;
+}
+
+
+/* ============================================================================
+   KALENDER JADWAL & NOTES TANGGAL SEWA
+   ============================================================================ */
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--neu-in);
+}
+.cal-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.cal-dot.sched { background: var(--primary); }
+.cal-dot.active { background: var(--success); }
+.cal-dot.pending { background: var(--warning); }
+.cal-dot.note { background: var(--accent); }
+
+.cal-weekdays,
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+.cal-weekdays {
+  margin-bottom: 6px;
+}
+.cal-weekday {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 4px 0;
+}
+.cal-day {
+  min-height: 58px;
+  padding: 6px 4px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  box-shadow: var(--neu-out-sm);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+  min-width: 0;
+}
+.cal-day:hover {
+  transform: translateY(-1px);
+}
+.cal-day.is-other {
+  opacity: 0.42;
+  box-shadow: none;
+}
+.cal-day.is-today {
+  border-color: rgba(14, 165, 233, 0.55);
+}
+.cal-day.is-selected {
+  box-shadow: var(--neu-in);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+[data-theme="dark"] .cal-day.is-selected {
+  background: #141923;
+  box-shadow: inset 3px 3px 7px #0a0d12, inset -2px -2px 6px rgba(56, 189, 248, 0.14);
+}
+.cal-day-num {
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.cal-day-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+  max-width: 100%;
+}
+.cal-day-count {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  line-height: 1;
+}
+.cal-agenda-list {
+  display: grid;
+  gap: 10px;
+}
+.cal-agenda-item {
+  background: var(--surface);
+  box-shadow: var(--neu-out-sm);
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: 13px;
+  padding: 11px 13px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+.cal-agenda-item.is-trx {
+  border-left-color: var(--primary);
+}
+.cal-agenda-item > div:first-child {
+  flex: 1 1 220px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cal-agenda-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.subtab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+@media (max-width: 768px) {
+  .cal-weekdays, .cal-grid { gap: 4px; }
+  .cal-day { min-height: 48px; padding: 5px 2px; border-radius: 10px; }
+  .cal-day-num { font-size: 0.74rem; }
+  .cal-agenda-actions { width: 100%; }
+  .cal-agenda-actions .btn { flex: 1 1 auto; }
 }

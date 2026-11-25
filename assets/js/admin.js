@@ -5,11 +5,16 @@
   const TOKEN_KEY = "rm_admin_token_v1";
   const ACTIVE_TAB_KEY = "rb_admin_active_tab_v1";
   const ACTIVE_SUBTAB_KEY = "rb_admin_mobil_subtab_v1";
+  const ACTIVE_MON_SUBTAB_KEY = "rb_admin_monitor_subtab_v1";
   const DEFAULT_DRIVE_FOLDER = "https://drive.google.com/drive/folders/1vDgNQXMj9WatFSJPlbDDmkybk-euko7u?usp=sharing";
 
   let CONFIG = null;
   let TOKEN = sessionStorage.getItem(TOKEN_KEY) || "";
-  let DATA = { cars: [], brands: [], types: [], transactions: [], customers: [], settings: {} };
+  let DATA = { cars: [], brands: [], types: [], transactions: [], customers: [], schedules: [], settings: {} };
+  const _today = new Date();
+  let CAL_YEAR = _today.getFullYear();
+  let CAL_MONTH = _today.getMonth();
+  let CAL_SELECTED_DATE = localDateYmd(_today);
   let MONITOR_TIMER = null;
   let MONITOR_TICK_TIMER = null;
   let IS_UPLOADING_PHOTO = false;
@@ -52,6 +57,37 @@
     if (shouldScroll) window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function localDateYmd(dt) {
+    const d = dt instanceof Date ? dt : new Date(dt);
+    if (isNaN(d.getTime())) return "";
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function extractYmd(val) {
+    const s = String(val || "").trim();
+    if (!s) return "";
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    return localDateYmd(s);
+  }
+  function formatIndoDate(ymd) {
+    if (!ymd) return "-";
+    const parts = ymd.split("-");
+    if (parts.length !== 3) return ymd;
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    if (isNaN(d.getTime())) return ymd;
+    return d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  }
+  function switchMonitorSubTab(subId) {
+    const btn =
+      document.querySelector('.subtab-btn[data-monsub="' + subId + '"]') ||
+      document.querySelector('.subtab-btn[data-monsub="subMonitorActive"]');
+    const resolved = btn ? btn.dataset.monsub : "subMonitorActive";
+    document.querySelectorAll(".subtab-btn[data-monsub]").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".monsub-panel").forEach(p => p.classList.add("hidden"));
+    if (btn) btn.classList.add("active");
+    const panel = el(resolved);
+    if (panel) panel.classList.remove("hidden");
+    try { sessionStorage.setItem(ACTIVE_MON_SUBTAB_KEY, resolved); } catch (_) {}
+  }
   function switchMobilSubTab(subTabId) {
     const btn =
       document.querySelector('.subtab-btn[data-subtab="' + subTabId + '"]') ||
@@ -74,9 +110,26 @@
       btn.addEventListener("click", () => switchTab(btn.dataset.tab, true));
     });
 
+    document.querySelectorAll(".subtab-btn[data-monsub]").forEach(btn => {
+      btn.addEventListener("click", () => switchMonitorSubTab(btn.dataset.monsub));
+    });
     document.querySelectorAll(".subtab-btn[data-subtab]").forEach(btn => {
       btn.addEventListener("click", () => switchMobilSubTab(btn.dataset.subtab));
     });
+    el("calPrevBtn").addEventListener("click", () => {
+      CAL_MONTH--; if (CAL_MONTH < 0) { CAL_MONTH = 11; CAL_YEAR--; } renderCalendar();
+    });
+    el("calNextBtn").addEventListener("click", () => {
+      CAL_MONTH++; if (CAL_MONTH > 11) { CAL_MONTH = 0; CAL_YEAR++; } renderCalendar();
+    });
+    el("calTodayBtn").addEventListener("click", () => {
+      const now = new Date(); CAL_YEAR = now.getFullYear(); CAL_MONTH = now.getMonth();
+      CAL_SELECTED_DATE = localDateYmd(now); renderCalendar();
+    });
+    el("calAddNoteBtn").addEventListener("click", () => window.__openScheduleModal("", CAL_SELECTED_DATE));
+    el("calAddForDayBtn").addEventListener("click", () => window.__openScheduleModal("", CAL_SELECTED_DATE));
+    el("scheduleForm").addEventListener("submit", handleSaveSchedule);
+    el("markPaidForm").addEventListener("submit", handleMarkPaidSubmit);
 
     el("trxStatusFilter").addEventListener("change", renderTransactions);
     el("custSearch").addEventListener("input", renderCustomers);
@@ -209,6 +262,7 @@
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(ACTIVE_TAB_KEY);
     sessionStorage.removeItem(ACTIVE_SUBTAB_KEY);
+    sessionStorage.removeItem(ACTIVE_MON_SUBTAB_KEY);
     if (MONITOR_TIMER) clearInterval(MONITOR_TIMER);
     if (MONITOR_TICK_TIMER) clearInterval(MONITOR_TICK_TIMER);
     el("adminContent").classList.add("hidden");
@@ -229,6 +283,7 @@
       DATA.types = res.types || [];
       DATA.transactions = res.transactions || [];
       DATA.customers = res.customers || [];
+      DATA.schedules = res.schedules || [];
       DATA.settings = res.settings || {};
 
       el("adminContent").classList.remove("hidden");
@@ -247,6 +302,9 @@
       let savedTab = "tabMonitor";
       try { savedTab = sessionStorage.getItem(ACTIVE_TAB_KEY) || "tabMonitor"; } catch (_) {}
       switchTab(savedTab, false);
+      let savedMonSub = "subMonitorActive";
+      try { savedMonSub = sessionStorage.getItem(ACTIVE_MON_SUBTAB_KEY) || "subMonitorActive"; } catch (_) {}
+      switchMonitorSubTab(savedMonSub);
       let savedSubTab = "subTabMobil";
       try { savedSubTab = sessionStorage.getItem(ACTIVE_SUBTAB_KEY) || "subTabMobil"; } catch (_) {}
       switchMobilSubTab(savedSubTab);
@@ -267,6 +325,7 @@
   function renderAll() {
     renderKpis();
     renderMonitor();
+    renderCalendar();
     renderTransactions();
     renderCars();
     renderBrands();
@@ -477,6 +536,303 @@
   };
 
   // ============================================================================
+  // KALENDER JADWAL & NOTES TANGGAL SEWA (TERJADWAL)
+  // ============================================================================
+  function renderCalendar() {
+    const grid = el("calGrid");
+    if (!grid) return;
+
+    const monthNames = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+    el("calMonthLabel").textContent = monthNames[CAL_MONTH] + " " + CAL_YEAR;
+
+    const scheduledNotesCount = DATA.schedules.filter(s => (s.status || "Terjadwal") === "Terjadwal").length;
+    const scheduledTrxCount = DATA.transactions.filter(t => t.status_sewa === "Terjadwal").length;
+    const totalScheduled = scheduledNotesCount + scheduledTrxCount;
+    const badge = el("monitorSchedBadge");
+    if (badge) {
+      badge.textContent = totalScheduled;
+      badge.classList.toggle("hidden", totalScheduled === 0);
+    }
+
+    const firstDay = new Date(CAL_YEAR, CAL_MONTH, 1);
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = new Date(CAL_YEAR, CAL_MONTH + 1, 0).getDate();
+    const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+    const todayYmd = localDateYmd(new Date());
+    const activeTrxList = DATA.transactions.filter(t => t.status_sewa !== "Dibatalkan");
+
+    let html = "";
+    for (let cell = 0; cell < totalCells; cell++) {
+      const dateObj = new Date(CAL_YEAR, CAL_MONTH, 1 - startOffset + cell);
+      const ymd = localDateYmd(dateObj);
+      const isOther = dateObj.getMonth() !== CAL_MONTH;
+      const isToday = ymd === todayYmd;
+      const isSelected = ymd === CAL_SELECTED_DATE;
+
+      const dayNotes = DATA.schedules.filter(s => extractYmd(s.tanggal) === ymd && s.status !== "Batal");
+      const dayTrx = activeTrxList.filter(t => {
+        const sYmd = extractYmd(t.tgl_jam_mulai);
+        const eYmd = extractYmd(t.tgl_jam_selesai) || sYmd;
+        return sYmd && ymd >= sYmd && ymd <= eYmd;
+      });
+
+      const dots = [];
+      if (dayTrx.some(t => t.status_sewa === "Terjadwal") || dayNotes.some(n => (n.status || "Terjadwal") === "Terjadwal")) {
+        dots.push('<span class="cal-dot sched" title="Terjadwal"></span>');
+      }
+      if (dayTrx.some(t => t.status_sewa === "Berjalan")) {
+        dots.push('<span class="cal-dot active" title="Sewa Aktif"></span>');
+      }
+      if (dayTrx.some(t => t.status_sewa === "Pending")) {
+        dots.push('<span class="cal-dot pending" title="Booking Pending"></span>');
+      }
+      if (dayNotes.length > 0) {
+        dots.push('<span class="cal-dot note" title="Notes Tanggal"></span>');
+      }
+
+      const totalCount = dayNotes.length + dayTrx.length;
+      const cls = "cal-day" + (isOther ? " is-other" : "") + (isToday ? " is-today" : "") + (isSelected ? " is-selected" : "");
+      html +=
+        '<button type="button" class="' + cls + '" data-ymd="' + ymd + '">' +
+        '<span class="cal-day-num">' + dateObj.getDate() + '</span>' +
+        '<span class="cal-day-dots">' + dots.join("") + '</span>' +
+        '<span class="cal-day-count">' + (totalCount > 0 ? totalCount + ' item' : '&nbsp;') + '</span>' +
+        '</button>';
+    }
+    grid.innerHTML = html;
+    grid.querySelectorAll(".cal-day[data-ymd]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        CAL_SELECTED_DATE = btn.dataset.ymd;
+        renderCalendar();
+      });
+    });
+
+    renderSelectedDateAgenda(activeTrxList);
+    renderUpcomingSchedules();
+  }
+
+  function renderSelectedDateAgenda(activeTrxList) {
+    el("calSelectedTitle").textContent = "Agenda • " + formatIndoDate(CAL_SELECTED_DATE);
+    const listEl = el("calSelectedList");
+    const dayNotes = DATA.schedules.filter(s => extractYmd(s.tanggal) === CAL_SELECTED_DATE);
+    const dayTrx = activeTrxList.filter(t => {
+      const sYmd = extractYmd(t.tgl_jam_mulai);
+      const eYmd = extractYmd(t.tgl_jam_selesai) || sYmd;
+      return sYmd && CAL_SELECTED_DATE >= sYmd && CAL_SELECTED_DATE <= eYmd;
+    });
+
+    if (dayNotes.length === 0 && dayTrx.length === 0) {
+      listEl.innerHTML = '<div class="text-muted">Belum ada catatan jadwal atau transaksi pada tanggal ini.</div>';
+      return;
+    }
+
+    const noteHtml = dayNotes.map(n => {
+      const st = n.status || "Terjadwal";
+      const badgeCls = st === "Terjadwal" ? "badge-info" : (st === "Selesai" ? "badge-success" : "badge-danger");
+      const meta = [n.jam ? ("Jam " + G.escapeHtml(n.jam)) : "", n.nama_mobil ? G.escapeHtml(n.nama_mobil) : "", n.nama_pelanggan ? G.escapeHtml(n.nama_pelanggan) : ""].filter(Boolean).join(" • ");
+      return `
+        <div class="cal-agenda-item">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+              <strong>Catatan Jadwal</strong>
+              <span class="badge ${badgeCls}">${G.escapeHtml(st)}</span>
+            </div>
+            ${meta ? `<div class="small" style="font-weight:600;margin-bottom:3px;">${meta}</div>` : ""}
+            <div class="small text-muted">${G.escapeHtml(n.catatan)}</div>
+          </div>
+          <div class="cal-agenda-actions">
+            ${st === "Terjadwal" ? `<button type="button" class="btn btn-primary btn-sm" onclick="window.__convertScheduleToTrx('${G.escapeHtml(n.id_jadwal)}')">Jadikan Sewa</button>` : ""}
+            <button type="button" class="btn btn-ghost btn-sm" onclick="window.__openScheduleModal('${G.escapeHtml(n.id_jadwal)}')">Edit</button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="window.__deleteSchedule('${G.escapeHtml(n.id_jadwal)}')">Hapus</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    const trxHtml = dayTrx.map(t => {
+      const stCls = t.status_sewa === "Selesai" ? "badge-success" : ((t.status_sewa === "Berjalan" || t.status_sewa === "Terjadwal") ? "badge-info" : "badge-warning");
+      return `
+        <div class="cal-agenda-item is-trx">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+              <strong>${G.escapeHtml(t.nama_mobil)} (${G.escapeHtml(t.plat_nomor)})</strong>
+              <span class="badge ${stCls}">${G.escapeHtml(t.status_sewa)}</span>
+            </div>
+            <div class="small">Penyewa: <strong>${G.escapeHtml(t.nama_pelanggan)}</strong> (${G.escapeHtml(t.no_wa)})</div>
+            <div class="small text-muted">${G.formatDateTime(t.tgl_jam_mulai)} s/d ${G.formatDateTime(t.tgl_jam_selesai)}</div>
+          </div>
+          <div class="cal-agenda-actions">
+            ${t.status_sewa === "Terjadwal" ? `<button type="button" class="btn btn-success btn-sm" onclick="window.__confirmBooking('${G.escapeHtml(t.id_transaksi)}')">Aktifkan Sewa</button>` : ""}
+            <button type="button" class="btn btn-ghost btn-sm" onclick="window.__openEditTrxModal('${G.escapeHtml(t.id_transaksi)}')">Edit</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    listEl.innerHTML = noteHtml + trxHtml;
+  }
+
+  function renderUpcomingSchedules() {
+    const upEl = el("calUpcomingList");
+    if (!upEl) return;
+    const notes = DATA.schedules
+      .filter(s => (s.status || "Terjadwal") === "Terjadwal")
+      .map(s => ({ kind: "note", sortKey: extractYmd(s.tanggal) + " " + (s.jam || "00:00"), item: s }));
+    const trxs = DATA.transactions
+      .filter(t => t.status_sewa === "Terjadwal")
+      .map(t => ({ kind: "trx", sortKey: extractYmd(t.tgl_jam_mulai) + " 00:00", item: t }));
+    const combined = notes.concat(trxs).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+    if (combined.length === 0) {
+      upEl.innerHTML = '<div class="text-muted">Belum ada jadwal berstatus Terjadwal.</div>';
+      return;
+    }
+
+    upEl.innerHTML = combined.map(entry => {
+      if (entry.kind === "note") {
+        const n = entry.item;
+        const ymd = extractYmd(n.tanggal);
+        return `
+          <div class="cal-agenda-item">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                <strong>${G.escapeHtml(formatIndoDate(ymd))}${n.jam ? " • " + G.escapeHtml(n.jam) : ""}</strong>
+                <span class="badge badge-info">Notes Terjadwal</span>
+              </div>
+              <div class="small" style="font-weight:600;">${G.escapeHtml([n.nama_mobil, n.nama_pelanggan].filter(Boolean).join(" • ") || "Catatan Umum")}</div>
+              <div class="small text-muted">${G.escapeHtml(n.catatan)}</div>
+            </div>
+            <div class="cal-agenda-actions">
+              <button type="button" class="btn btn-primary btn-sm" onclick="window.__convertScheduleToTrx('${G.escapeHtml(n.id_jadwal)}')">Jadikan Sewa</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="window.__openScheduleModal('${G.escapeHtml(n.id_jadwal)}')">Edit</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="window.__deleteSchedule('${G.escapeHtml(n.id_jadwal)}')">Hapus</button>
+            </div>
+          </div>
+        `;
+      }
+      const t = entry.item;
+      return `
+        <div class="cal-agenda-item is-trx">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+              <strong>${G.escapeHtml(t.nama_mobil)} (${G.escapeHtml(t.plat_nomor)})</strong>
+              <span class="badge badge-info">Sewa Terjadwal</span>
+            </div>
+            <div class="small">Penyewa: <strong>${G.escapeHtml(t.nama_pelanggan)}</strong> (${G.escapeHtml(t.no_wa)})</div>
+            <div class="small text-muted">Mulai: ${G.formatDateTime(t.tgl_jam_mulai)} • Bayar: ${G.escapeHtml(t.metode_bayar || "Tunai")}</div>
+          </div>
+          <div class="cal-agenda-actions">
+            <button type="button" class="btn btn-success btn-sm" onclick="window.__confirmBooking('${G.escapeHtml(t.id_transaksi)}')">Aktifkan Sewa</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="window.__openEditTrxModal('${G.escapeHtml(t.id_transaksi)}')">Edit</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  window.__openScheduleModal = function (idJadwal, presetDate) {
+    el("scheduleForm").reset();
+    el("schedId").value = "";
+    const carSel = el("schedCarId");
+    carSel.innerHTML = '<option value="">-- Bebas / Belum Ditentukan --</option>' +
+      DATA.cars.map(c => `<option value="${G.escapeHtml(c.id_mobil)}">${G.escapeHtml(c.nama_mobil)} (${G.escapeHtml(c.plat_nomor)})</option>`).join("");
+    el("schedDate").value = presetDate || CAL_SELECTED_DATE || localDateYmd(new Date());
+    el("schedTime").value = "09:00";
+    el("schedStatus").value = "Terjadwal";
+    el("scheduleModalTitle").textContent = idJadwal ? "Edit Catatan Jadwal" : "Tambah Catatan Jadwal";
+
+    if (idJadwal) {
+      const n = DATA.schedules.find(x => x.id_jadwal === idJadwal);
+      if (n) {
+        el("schedId").value = n.id_jadwal;
+        el("schedDate").value = extractYmd(n.tanggal) || CAL_SELECTED_DATE;
+        el("schedTime").value = n.jam || "09:00";
+        carSel.value = n.id_mobil || "";
+        el("schedStatus").value = n.status || "Terjadwal";
+        el("schedCustomer").value = n.nama_pelanggan || "";
+        el("schedWa").value = n.no_wa || "";
+        el("schedNote").value = n.catatan || "";
+      }
+    }
+    el("scheduleModal").classList.add("open");
+  };
+
+  async function handleSaveSchedule(e) {
+    e.preventDefault();
+    const btn = el("saveScheduleBtn");
+    btn.disabled = true;
+    const selCarOpt = el("schedCarId").selectedOptions[0];
+    G.uiLoading("Menyimpan catatan jadwal sewa...", "Menyimpan Jadwal");
+    try {
+      const ymd = el("schedDate").value;
+      const res = await adminApi("save_schedule", {
+        data: {
+          id_jadwal: el("schedId").value,
+          tanggal: ymd,
+          jam: el("schedTime").value.trim(),
+          id_mobil: el("schedCarId").value,
+          nama_mobil: el("schedCarId").value && selCarOpt ? selCarOpt.textContent : "",
+          nama_pelanggan: el("schedCustomer").value.trim(),
+          no_wa: el("schedWa").value.trim(),
+          catatan: el("schedNote").value.trim(),
+          status: el("schedStatus").value
+        }
+      });
+      if (!res.ok) throw new Error(res.error);
+      CAL_SELECTED_DATE = ymd || CAL_SELECTED_DATE;
+      const parts = CAL_SELECTED_DATE.split("-");
+      if (parts.length === 3) {
+        CAL_YEAR = Number(parts[0]);
+        CAL_MONTH = Number(parts[1]) - 1;
+      }
+      window.__closeModal("scheduleModal");
+      G.uiLoading("Memperbarui kalender jadwal...", "Sinkronisasi Data");
+      await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Jadwal Tersimpan", "Catatan jadwal tanggal sewa berhasil disimpan.", "success");
+    } catch (err) {
+      G.uiClose();
+      await G.uiAlert("Gagal Menyimpan Jadwal", err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  window.__deleteSchedule = async function (idJadwal) {
+    const ok = await G.uiConfirm("Hapus Catatan Jadwal", "Yakin ingin menghapus catatan jadwal ini?", "Ya, Hapus", "btn-danger");
+    if (!ok) return;
+    G.uiLoading("Menghapus catatan jadwal...", "Menghapus");
+    try {
+      const res = await adminApi("delete_schedule", { id_jadwal: idJadwal });
+      if (!res.ok) throw new Error(res.error);
+      G.uiLoading("Memperbarui kalender...", "Sinkronisasi Data");
+      await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Terhapus", "Catatan jadwal berhasil dihapus.", "info");
+    } catch (err) {
+      G.uiClose();
+      await G.uiAlert("Gagal Menghapus", err.message, "error");
+    }
+  };
+
+  window.__convertScheduleToTrx = function (idJadwal) {
+    const n = DATA.schedules.find(x => x.id_jadwal === idJadwal);
+    if (!n) return;
+    const ymd = extractYmd(n.tanggal) || localDateYmd(new Date());
+    const jam = /^\d{2}:\d{2}/.test(String(n.jam || "")) ? String(n.jam).slice(0, 5) : "09:00";
+    window.__openNewTrxModal({
+      id_mobil: n.id_mobil || "",
+      nama_pelanggan: n.nama_pelanggan || "",
+      no_wa: n.no_wa || "",
+      startLocal: ymd + "T" + jam,
+      status_sewa: "Terjadwal"
+    });
+  };
+
+  // ============================================================================
   // TAB 2: TRANSAKSI & PENGEMBALIAN
   // ============================================================================
   function renderTransactions() {
@@ -492,7 +848,7 @@
     el("trxTableBody").innerHTML = list.map(t => {
       const stCls =
         t.status_sewa === "Selesai" ? "badge-success" :
-        t.status_sewa === "Berjalan" ? "badge-info" :
+        (t.status_sewa === "Berjalan" || t.status_sewa === "Terjadwal") ? "badge-info" :
         t.status_sewa === "Pending" ? "badge-warning" : "badge-danger";
       const payCls =
         t.status_bayar === "Lunas" ? "badge-success" :
@@ -509,10 +865,13 @@
       }
 
       const actions = [];
-      if (t.status_sewa === "Pending") {
-        actions.push(`<button class="btn btn-primary btn-sm" onclick="window.__confirmBooking('${G.escapeHtml(t.id_transaksi)}')">Konfirmasi</button>`);
+      if (t.status_sewa === "Pending" || t.status_sewa === "Terjadwal") {
+        const actLabel = t.status_sewa === "Terjadwal" ? "Aktifkan" : "Konfirmasi";
+        actions.push(`<button class="btn btn-primary btn-sm" onclick="window.__confirmBooking('${G.escapeHtml(t.id_transaksi)}')">${actLabel}</button>`);
+        actions.push(`<button class="btn btn-ghost btn-sm" onclick="window.__openEditTrxModal('${G.escapeHtml(t.id_transaksi)}')">Edit</button>`);
         actions.push(`<button class="btn btn-danger btn-sm" onclick="window.__cancelTrx('${G.escapeHtml(t.id_transaksi)}')">Batalkan</button>`);
       } else if (t.status_sewa === "Berjalan") {
+        actions.push(`<button class="btn btn-ghost btn-sm" onclick="window.__openEditTrxModal('${G.escapeHtml(t.id_transaksi)}')">Edit</button>`);
         actions.push(`<button class="btn btn-success btn-sm" onclick="window.__openCheckinModal('${G.escapeHtml(t.id_transaksi)}')">Pengembalian</button>`);
         actions.push(`<button class="btn btn-wa btn-sm" onclick="window.__sendWaReminder('${G.escapeHtml(t.id_transaksi)}')">WA</button>`);
       }
@@ -554,6 +913,8 @@
             <div class="td-stack">
               <strong>${G.formatRupiah(t.total_akhir)}</strong>
               ${liveOvHtml}
+              ${(Number(t.dp_bayar) > 0 || t.metode_bayar_dp) ? `<div class="small text-muted">DP (${G.escapeHtml(t.metode_bayar_dp || "Tunai")}): ${G.formatRupiah(t.dp_bayar)}</div>` : ""}
+              ${t.metode_bayar ? `<div class="small text-muted">Cara Bayar: ${G.escapeHtml(t.metode_bayar)}</div>` : ""}
               <div class="small text-muted">Sisa: ${G.formatRupiah(t.sisa_bayar)}</div>
             </div>
           </td>
@@ -571,9 +932,11 @@
     }).join("");
   }
 
-  window.__openNewTrxModal = function () {
+  window.__openNewTrxModal = function (prefill) {
+    const pf = prefill || {};
+    el("newTrxForm").reset();
     const sel = el("trxCarId");
-    const availCars = DATA.cars.filter(c => c.status === "Tersedia");
+    const availCars = DATA.cars.filter(c => c.status === "Tersedia" || (pf.id_mobil && c.id_mobil === pf.id_mobil));
     const list = availCars.length > 0 ? availCars : DATA.cars;
 
     sel.innerHTML = list.map(c =>
@@ -581,10 +944,17 @@
       `${G.escapeHtml(c.nama_mobil)} (${G.escapeHtml(c.plat_nomor)}) - ${G.formatRupiah(c.harga_24jam)}/hari [${G.escapeHtml(c.status)}]` +
       `</option>`
     ).join("");
+    if (pf.id_mobil) sel.value = pf.id_mobil;
 
-    const now = new Date();
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    el("trxStart").value = G.toLocalInputValue(now);
+    el("trxName").value = pf.nama_pelanggan || "";
+    el("trxWa").value = pf.no_wa || "";
+    el("trxNik").value = pf.nik_sim || "";
+    el("trxAddr").value = pf.alamat_pelanggan || "";
+
+    let startDt = pf.startLocal ? new Date(pf.startLocal) : new Date();
+    if (isNaN(startDt.getTime())) startDt = new Date();
+    const tomorrow = new Date(startDt.getTime() + 24 * 60 * 60 * 1000);
+    el("trxStart").value = pf.startLocal || G.toLocalInputValue(startDt);
     el("trxEnd").value = G.toLocalInputValue(tomorrow);
     el("trxDeliveryMethod").value = "Ambil Sendiri";
     G.setRupiahInput(el("trxDeliveryFee"), 0);
@@ -593,6 +963,9 @@
     G.setRupiahInput(el("trxDriverFee"), 0);
     G.setRupiahInput(el("trxDp"), 0);
     el("trxKmAwal").value = 0;
+    el("trxDpMethod").value = "Tunai";
+    el("trxPayMethod").value = "Tunai";
+    el("trxScheduleStatus").value = pf.status_sewa === "Terjadwal" ? "Terjadwal" : "Berjalan";
 
     updateNewTrxSummary();
     el("newTrxModal").classList.add("open");
@@ -650,7 +1023,10 @@
           layanan_sopir: el("trxDriverMethod").value,
           biaya_sopir: G.parseRupiah(el("trxDriverFee").value),
           km_awal: Number(el("trxKmAwal").value) || 0,
-          dp_bayar: G.parseRupiah(el("trxDp").value)
+          dp_bayar: G.parseRupiah(el("trxDp").value),
+          metode_bayar_dp: el("trxDpMethod").value,
+          metode_bayar: el("trxPayMethod").value,
+          status_sewa: el("trxScheduleStatus").value
         }
       });
       if (!res.ok) throw new Error(res.error);
@@ -697,6 +1073,9 @@
     G.setRupiahInput(el("editTrxDriverFee"), Number(trx.biaya_sopir) || 0);
     el("editTrxKmAwal").value = Number(trx.km_awal) || 0;
     G.setRupiahInput(el("editTrxDp"), Number(trx.dp_bayar) || 0);
+    el("editTrxDpMethod").value = trx.metode_bayar_dp || "Tunai";
+    el("editTrxPayMethod").value = trx.metode_bayar || "Tunai";
+    el("editTrxScheduleStatus").value = trx.status_sewa || "Berjalan";
     updateEditTrxSummary();
     el("editTrxModal").classList.add("open");
   };
@@ -757,7 +1136,10 @@
           layanan_sopir: el("editTrxDriverMethod").value,
           biaya_sopir: G.parseRupiah(el("editTrxDriverFee").value),
           km_awal: Number(el("editTrxKmAwal").value) || 0,
-          dp_bayar: G.parseRupiah(el("editTrxDp").value)
+          dp_bayar: G.parseRupiah(el("editTrxDp").value),
+          metode_bayar_dp: el("editTrxDpMethod").value,
+          metode_bayar: el("editTrxPayMethod").value,
+          status_sewa: el("editTrxScheduleStatus").value
         }
       });
       if (!res.ok) throw new Error(res.error);
@@ -808,22 +1190,38 @@
     }
   };
 
-  window.__markPaid = async function (idTrx) {
-    const ok = await G.uiConfirm("Konfirmasi Pelunasan", "Tandai transaksi " + idTrx + " sudah LUNAS?", "Ya, Lunasi", "btn-success");
-    if (!ok) return;
+  window.__markPaid = function (idTrx) {
+    const trx = DATA.transactions.find(t => t.id_transaksi === idTrx);
+    el("mpTrxId").value = idTrx;
+    el("mpPayMethod").value = (trx && (trx.metode_bayar || trx.metode_bayar_dp)) || "Tunai";
+    el("mpInfoBox").innerHTML = trx
+      ? `<strong>${G.escapeHtml(trx.id_transaksi)}</strong><br>${G.escapeHtml(trx.nama_mobil)} • ${G.escapeHtml(trx.nama_pelanggan)}<br>Sisa Tagihan: <strong>${G.formatRupiah(trx.sisa_bayar)}</strong>`
+      : `Konfirmasi pelunasan transaksi <strong>${G.escapeHtml(idTrx)}</strong>`;
+    el("markPaidModal").classList.add("open");
+  };
+
+  async function handleMarkPaidSubmit(e) {
+    e.preventDefault();
+    const btn = el("saveMarkPaidBtn");
+    btn.disabled = true;
+    const idTrx = el("mpTrxId").value;
+    const metodeBayar = el("mpPayMethod").value || "Tunai";
     G.uiLoading("Memperbarui status pembayaran...", "Memproses");
     try {
-      const res = await adminApi("mark_paid", { id_transaksi: idTrx });
+      const res = await adminApi("mark_paid", { id_transaksi: idTrx, metode_bayar: metodeBayar });
       if (!res.ok) throw new Error(res.error);
+      window.__closeModal("markPaidModal");
       G.uiLoading("Memperbarui data pembayaran...", "Sinkronisasi Data");
       await loadDashboard(true);
       G.uiClose();
-      await G.uiAlert("Lunas", "Transaksi berhasil ditandai Lunas.", "success");
+      await G.uiAlert("Lunas", "Transaksi berhasil ditandai Lunas (" + metodeBayar + ").", "success");
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal", err.message, "error");
+    } finally {
+      btn.disabled = false;
     }
-  };
+  }
 
   // ============================================================================
   // CHECK-IN & OTOMATIS DENDA
@@ -840,6 +1238,7 @@
     el("ciDendaOverride").value = "";
     G.setRupiahInput(el("ciExtraFee"), 0);
     G.setRupiahInput(el("ciPayNow"), 0);
+    el("ciPayMethod").value = ACTIVE_CI_TRX.metode_bayar || ACTIVE_CI_TRX.metode_bayar_dp || "Tunai";
     el("ciNotes").value = "";
     PENDING_CI_PHOTO = null;
     el("ciCameraInput").value = "";
@@ -918,6 +1317,7 @@
           denda_override: el("ciDendaOverride").value.trim() !== "" ? G.parseRupiah(el("ciDendaOverride").value) : "",
           biaya_tambahan_lain: G.parseRupiah(el("ciExtraFee").value),
           bayar_tambahan: G.parseRupiah(el("ciPayNow").value),
+          metode_bayar: el("ciPayMethod").value,
           status_mobil_kembali: el("ciCarStatus").value,
           catatan_kondisi: [el("ciNotes").value.trim(), el("ciPhotoUrl").value.trim() ? ("Foto Kondisi: " + el("ciPhotoUrl").value.trim()) : ""].filter(Boolean).join(" | ")
         }
@@ -1534,7 +1934,7 @@
     `;
 
     if (rows.length === 0) {
-      el("reportTableBody").innerHTML = '<tr><td colspan="9" class="text-muted">Tidak ada transaksi pada periode ini.</td></tr>';
+      el("reportTableBody").innerHTML = '<tr><td colspan="10" class="text-muted">Tidak ada transaksi pada periode ini.</td></tr>';
       return;
     }
 
@@ -1548,18 +1948,20 @@
         <td data-label="Sopir">${G.formatRupiah(r.biaya_sopir)}</td>
         <td data-label="Denda" class="${Number(r.denda_keterlambatan) > 0 ? "text-danger" : ""}">${G.formatRupiah(r.denda_keterlambatan)}</td>
         <td data-label="Total Akhir"><strong>${G.formatRupiah(r.total_akhir)}</strong></td>
-        <td data-label="Status Bayar">${G.escapeHtml(r.status_bayar)}</td>
+        <td data-label="Metode Bayar">${G.escapeHtml(r.metode_bayar || r.metode_bayar_dp || "-")}</td>
+        <td data-label="Bayar">${G.escapeHtml(r.status_bayar)}</td>
       </tr>
     `).join("");
   }
 
   function exportReportCsv() {
     const rows = getFilteredReportRows();
-    const header = ["ID Transaksi", "Mobil", "Plat", "Pelanggan", "Mulai", "Selesai", "Metode Ambil", "Sewa", "Biaya Antar", "Sopir", "Denda", "Total Akhir", "Status Bayar"];
+    const header = ["ID Transaksi", "Mobil", "Plat", "Pelanggan", "Mulai", "Selesai", "Metode Ambil", "Sewa", "Biaya Antar", "Sopir", "Denda", "Total Akhir", "Cara Bayar DP", "Cara Bayar Transaksi", "Status Bayar"];
     const lines = [header.join(",")].concat(
       rows.map(r => [
         r.id_transaksi, r.nama_mobil, r.plat_nomor, r.nama_pelanggan, r.tgl_jam_mulai, r.tgl_jam_selesai,
-        r.metode_ambil, r.subtotal_sewa, r.biaya_antar, r.biaya_sopir, r.denda_keterlambatan, r.total_akhir, r.status_bayar
+        r.metode_ambil, r.subtotal_sewa, r.biaya_antar, r.biaya_sopir, r.denda_keterlambatan, r.total_akhir,
+        r.metode_bayar_dp || "", r.metode_bayar || "", r.status_bayar
       ].map(v => `"${String(v || "").replace(/"/g, '""')}"`).join(","))
     );
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
@@ -1669,7 +2071,8 @@
           ${Number(t.denda_keterlambatan) > 0 ? `<tr><td>Denda Overtime (${G.escapeHtml(t.jam_telat)} jam)</td><td style="text-align:right;">${G.formatRupiah(t.denda_keterlambatan)}</td></tr>` : ""}
           ${Number(t.biaya_tambahan_lain) > 0 ? `<tr><td>Biaya Tambahan Lain</td><td style="text-align:right;">${G.formatRupiah(t.biaya_tambahan_lain)}</td></tr>` : ""}
           <tr><td><strong>Total Tagihan</strong></td><td style="text-align:right;"><strong>${G.formatRupiah(t.total_akhir)}</strong></td></tr>
-          <tr><td>Telah Dibayar</td><td style="text-align:right;">${G.formatRupiah(t.dp_bayar)}</td></tr>
+          <tr><td>Telah Dibayar / DP${t.metode_bayar_dp ? " (" + G.escapeHtml(t.metode_bayar_dp) + ")" : ""}</td><td style="text-align:right;">${G.formatRupiah(t.dp_bayar)}</td></tr>
+          <tr><td>Metode Pembayaran</td><td style="text-align:right;">${G.escapeHtml(t.metode_bayar || t.metode_bayar_dp || "Tunai")}</td></tr>
           <tr><td><strong>Sisa Pembayaran</strong></td><td style="text-align:right;"><strong>${G.formatRupiah(t.sisa_bayar)}</strong></td></tr>
         </tbody>
       </table>
