@@ -5,7 +5,7 @@
   let CONFIG = null;
   let CARS = [];
   let SETTINGS = {
-    nama_rental: "Shalijcha Rent Car",
+    nama_rental: "Restu Bumi",
     alamat_garasi: "-",
     no_wa_admin: "",
     persen_denda_per_jam: 10,
@@ -60,7 +60,7 @@
       el("publicAlert").innerHTML =
         "<strong>Mode Belum Terhubung:</strong> URL Google Apps Script belum dipasang di <code>assets/js/config.enc.js</code>. " +
         "Silakan buka <code>tools/generator-enkripsi.html</code> secara lokal untuk mengenkripsi URL Google Apps Script Anda.";
-      el("carGrid").innerHTML = '<div class="panel-card">Belum ada data armada (Google Sheets belum dihubungkan).</div>';
+      el("carGrid").innerHTML = '<div class="panel-card">Belum ada data mobil (Google Sheets belum dihubungkan).</div>';
       return;
     }
 
@@ -81,7 +81,7 @@
   function applySettingsUI() {
     document.title = SETTINGS.nama_rental + " - Katalog Sewa Mobil";
     el("navRentalName").textContent = SETTINGS.nama_rental;
-    el("heroTitle").textContent = "Armada " + SETTINGS.nama_rental;
+    el("heroTitle").textContent = SETTINGS.nama_rental + " • Rental Mobil Siap Jalan";
     el("pillGarage").textContent = "Garasi: " + (SETTINGS.alamat_garasi || "-");
     el("pillDelivery").textContent =
       "Antar ke Lokasi: +" + G.formatRupiah(SETTINGS.biaya_antar_default);
@@ -116,7 +116,7 @@
     });
 
     if (filtered.length === 0) {
-      el("carGrid").innerHTML = '<div class="panel-card">Tidak ada armada yang cocok dengan filter Anda.</div>';
+      el("carGrid").innerHTML = '<div class="panel-card">Tidak ada unit mobil yang cocok dengan filter Anda.</div>';
       return;
     }
 

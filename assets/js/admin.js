@@ -143,7 +143,7 @@
       el("adminContent").classList.remove("hidden");
       el("logoutBtn").classList.remove("hidden");
       el("refreshDataBtn").classList.remove("hidden");
-      el("adminBrandName").textContent = "Admin • " + (DATA.settings.nama_rental || "Rental Mobil");
+      el("adminBrandName").textContent = "Admin • " + (DATA.settings.nama_rental || "Restu Bumi");
 
       if (!el("reportMonth").value) {
         const now = new Date();
@@ -282,7 +282,7 @@
     if (!trx) return;
     const rules = getPenaltyRules();
     const ov = G.calculateOvertime(trx.tgl_jam_selesai, null, trx.harga_harian_deal, rules.persen, rules.toleransi);
-    const rentalName = DATA.settings.nama_rental || "Rental Mobil";
+    const rentalName = DATA.settings.nama_rental || "Restu Bumi";
 
     let msg = "";
     if (ov.isOverdue && !ov.inTolerance) {
@@ -944,7 +944,7 @@
   window.__openInvoice = function (idTrx) {
     const t = DATA.transactions.find(x => x.id_transaksi === idTrx);
     if (!t) return;
-    const rental = DATA.settings.nama_rental || "Rental Mobil";
+    const rental = DATA.settings.nama_rental || "Restu Bumi";
 
     el("invoicePaper").innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:16px;">
