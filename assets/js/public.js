@@ -94,11 +94,6 @@
       const waBtn = el("navWaBtn");
       waBtn.href = waUrl;
       waBtn.classList.remove("hidden");
-      const dockWa = el("dockWaBtn");
-      if (dockWa) {
-        dockWa.href = waUrl;
-        dockWa.classList.remove("hidden");
-      }
     }
 
     const delivSel = el("bookDelivery");

@@ -816,6 +816,7 @@ th {
 .text-danger { color: var(--danger); }
 .text-success { color: var(--success); }
 .text-warning { color: var(--warning); }
+.text-info { color: var(--primary); }
 .small { font-size: 0.75rem; }
 
 /* Invoice Print View */
@@ -865,6 +866,7 @@ th {
   }
   .nav-btn-label { display: none; }
   .container { padding: 12px 11px 96px; }
+  .container.container-public { padding-bottom: 28px; }
   .hero { padding: 14px 14px; border-radius: 16px; margin-bottom: 14px; }
   .filter-bar, .form-grid-2, .upload-actions-grid { grid-template-columns: 1fr; }
   .drive-link-row { flex-direction: column; align-items: stretch; }

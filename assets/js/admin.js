@@ -12,6 +12,8 @@
   let MONITOR_TIMER = null;
   let IS_UPLOADING_PHOTO = false;
   let CAR_PHOTO_UPLOAD_ERROR = false;
+  let PENDING_CAR_PHOTO = null;
+  let PENDING_CI_PHOTO = null;
 
   const el = id => document.getElementById(id);
 
@@ -50,7 +52,7 @@
 
   function bindGlobalEvents() {
     el("loginForm").addEventListener("submit", handleLogin);
-    el("logoutBtn").addEventListener("click", logout);
+    el("logoutBtn").addEventListener("click", confirmLogout);
     el("refreshDataBtn").addEventListener("click", () => loadDashboard(false));
 
     document.querySelectorAll(".dock-item[data-tab]").forEach(btn => {
@@ -146,6 +148,16 @@
       btn.disabled = false;
       btn.textContent = "Masuk Panel Admin";
     }
+  }
+
+  async function confirmLogout() {
+    const ok = await G.uiConfirm(
+      "Konfirmasi Keluar",
+      "Apakah Anda yakin ingin keluar dari Panel Admin?",
+      "Ya, Keluar",
+      "btn-danger"
+    );
+    if (ok) logout();
   }
 
   function logout() {
@@ -613,7 +625,11 @@
     G.setRupiahInput(el("ciExtraFee"), 0);
     G.setRupiahInput(el("ciPayNow"), 0);
     el("ciNotes").value = "";
+    PENDING_CI_PHOTO = null;
+    el("ciCameraInput").value = "";
+    el("ciGalleryInput").value = "";
     el("ciPhotoUrl").value = "";
+    el("ciUploadStatus").className = "upload-status text-muted";
     el("ciUploadStatus").textContent = "";
     el("ciPhotoPreviewWrap").innerHTML = "";
 
@@ -660,9 +676,24 @@
     e.preventDefault();
     const btn = el("saveCheckinBtn");
     btn.disabled = true;
-    G.uiLoading("Menghitung denda dan menyelesaikan pengembalian...", "Memproses Check-In");
 
     try {
+      if (PENDING_CI_PHOTO) {
+        G.uiLoading("Mengunggah foto kondisi ke Google Drive...", "Mengunggah Foto");
+        const prefix = (el("ciTrxId").value || "kondisi").replace(/\s+/g, "-");
+        const upRes = await adminApi("upload_drive_image", {
+          data: {
+            base64: PENDING_CI_PHOTO.base64,
+            mimeType: PENDING_CI_PHOTO.mimeType,
+            fileName: prefix + "-" + Date.now() + ".jpg"
+          }
+        });
+        if (!upRes.ok) throw new Error(upRes.error || "Gagal upload foto kondisi ke Google Drive.");
+        el("ciPhotoUrl").value = upRes.url;
+        PENDING_CI_PHOTO = null;
+      }
+
+      G.uiLoading("Menghitung denda dan menyelesaikan pengembalian...", "Memproses Check-In");
       const res = await adminApi("checkin_car", {
         data: {
           id_transaksi: el("ciTrxId").value,
@@ -746,10 +777,17 @@
   window.__openCarModal = function (idMobil) {
     el("carForm").reset();
     el("carId").value = "";
+    el("carPhotoUrl").value = "";
+    el("carCameraInput").value = "";
+    el("carGalleryInput").value = "";
+    el("carPhotoPreviewWrap").innerHTML = "";
+    el("carUploadStatus").className = "upload-status text-muted";
     el("carUploadStatus").textContent = "";
+    PENDING_CAR_PHOTO = null;
     CAR_PHOTO_UPLOAD_ERROR = false;
     IS_UPLOADING_PHOTO = false;
     el("carModalTitle").textContent = idMobil ? "Edit Data Mobil" : "Tambah Mobil Baru";
+    el("saveCarBtn").textContent = idMobil ? "Update Mobil" : "Simpan Mobil";
 
     if (idMobil) {
       const c = DATA.cars.find(x => x.id_mobil === idMobil);
@@ -777,7 +815,6 @@
     if (!file) return;
     const isCar = target === "car";
     const statusEl = el(isCar ? "carUploadStatus" : "ciUploadStatus");
-    const urlEl = el(isCar ? "carPhotoUrl" : "ciPhotoUrl");
 
     IS_UPLOADING_PHOTO = true;
     if (isCar) {
@@ -786,47 +823,45 @@
     }
 
     try {
-      G.uiLoading("Mengompresi foto dan mengunggah ke Google Drive...", "Mengunggah Foto");
+      G.uiLoading("Memproses dan mengompresi foto...", "Menyiapkan Foto");
       statusEl.className = "upload-status text-warning";
-      statusEl.textContent = "Mengompresi & mengunggah ke Google Drive...";
+      statusEl.textContent = "Memproses & mengompresi foto...";
 
       const compressed = await G.compressImageForUpload(file, 1280, 0.8);
-      const prefix = isCar ? (el("carPlate").value.trim() || "mobil") : (el("ciTrxId").value || "kondisi");
-      const fileName = prefix.replace(/\s+/g, "-") + "-" + Date.now() + ".jpg";
-
-      const res = await adminApi("upload_drive_image", {
-        data: {
-          base64: compressed.base64,
-          mimeType: compressed.mimeType,
-          fileName: fileName
-        }
-      });
-      G.uiClose();
-      if (!res.ok) throw new Error(res.error || "Gagal upload ke Google Drive.");
-
-      urlEl.value = res.url;
-      statusEl.className = "upload-status text-success";
-      statusEl.textContent = "Foto berhasil tersimpan ke Google Drive.";
+      const pendingPayload = {
+        base64: compressed.base64,
+        mimeType: compressed.mimeType,
+        fileName: compressed.fileName,
+        previewDataUrl: compressed.previewDataUrl
+      };
 
       if (isCar) {
+        PENDING_CAR_PHOTO = pendingPayload;
         CAR_PHOTO_UPLOAD_ERROR = false;
-        updateCarPhotoPreview();
+        el("carPhotoPreviewWrap").innerHTML =
+          '<div class="small text-info" style="margin-top:6px;">Preview foto baru (akan diupload ke Google Drive saat klik Simpan)</div>' +
+          '<img src="' + compressed.previewDataUrl + '" alt="Preview Mobil" class="preview-thumb">';
       } else {
-        el("ciPhotoPreviewWrap").innerHTML = G.renderCarImage(res.url, "Foto Kondisi", "preview-thumb");
+        PENDING_CI_PHOTO = pendingPayload;
+        el("ciPhotoPreviewWrap").innerHTML =
+          '<div class="small text-info" style="margin-top:6px;">Preview foto kondisi (akan diupload ke Google Drive saat Selesaikan)</div>' +
+          '<img src="' + compressed.previewDataUrl + '" alt="Preview Kondisi" class="preview-thumb">';
       }
-      await G.uiAlert("Upload Berhasil", "Foto berhasil disimpan ke folder Google Drive Anda.", "success");
+
+      statusEl.className = "upload-status text-success";
+      statusEl.textContent = "Foto siap diupload saat tombol Simpan diklik.";
+      G.uiClose();
     } catch (err) {
       G.uiClose();
       if (isCar) {
+        PENDING_CAR_PHOTO = null;
         CAR_PHOTO_UPLOAD_ERROR = true;
+      } else {
+        PENDING_CI_PHOTO = null;
       }
       statusEl.className = "upload-status text-danger";
-      statusEl.textContent = "Gagal upload: " + err.message;
-      await G.uiAlert(
-        "Upload Foto Gagal",
-        err.message + "\n\nMobil tidak dapat disimpan sebelum upload foto berhasil atau error dibersihkan.",
-        "error"
-      );
+      statusEl.textContent = "Gagal memproses foto: " + err.message;
+      await G.uiAlert("Foto Tidak Valid", err.message, "error");
     } finally {
       IS_UPLOADING_PHOTO = false;
       if (isCar) {
@@ -856,11 +891,7 @@
   async function handleSaveCar(e) {
     e.preventDefault();
     if (IS_UPLOADING_PHOTO) {
-      await G.uiAlert("Sedang Mengunggah", "Proses upload foto ke Google Drive belum selesai. Mohon tunggu sebentar.", "warning");
-      return;
-    }
-    if (CAR_PHOTO_UPLOAD_ERROR) {
-      await G.uiAlert("Simpan Dibatalkan", "Upload foto sebelumnya gagal sehingga data mobil tidak disimpan. Silakan ulangi ambil/pilih foto sampai berhasil.", "error");
+      await G.uiAlert("Sedang Memproses Foto", "Proses persiapan foto belum selesai. Mohon tunggu sebentar.", "warning");
       return;
     }
     const btn = el("saveCarBtn");
@@ -868,6 +899,27 @@
     btn.textContent = "Menyimpan...";
 
     try {
+      if (PENDING_CAR_PHOTO) {
+        G.uiLoading("Mengunggah foto mobil ke Google Drive...", "Mengunggah Foto");
+        const prefix = (el("carPlate").value.trim() || "mobil").replace(/\s+/g, "-");
+        const upRes = await adminApi("upload_drive_image", {
+          data: {
+            base64: PENDING_CAR_PHOTO.base64,
+            mimeType: PENDING_CAR_PHOTO.mimeType,
+            fileName: prefix + "-" + Date.now() + ".jpg"
+          }
+        });
+        if (!upRes.ok) {
+          throw new Error("UPLOAD_FAILED:" + (upRes.error || "Gagal upload foto ke Google Drive."));
+        }
+        el("carPhotoUrl").value = upRes.url;
+        PENDING_CAR_PHOTO = null;
+        CAR_PHOTO_UPLOAD_ERROR = false;
+        el("carUploadStatus").className = "upload-status text-success";
+        el("carUploadStatus").textContent = "Foto berhasil diupload ke Google Drive.";
+      }
+
+      G.uiLoading("Menyimpan data mobil ke Google Sheets...", "Menyimpan Mobil");
       const res = await adminApi("save_car", {
         data: {
           id_mobil: el("carId").value,
@@ -892,10 +944,20 @@
       await G.uiAlert("Berhasil", "Data mobil berhasil disimpan.", "success");
     } catch (err) {
       G.uiClose();
-      await G.uiAlert("Gagal Menyimpan Mobil", err.message, "error");
+      const rawMsg = String(err && err.message ? err.message : err);
+      const isUploadErr = rawMsg.indexOf("UPLOAD_FAILED:") === 0 || PENDING_CAR_PHOTO !== null;
+      const cleanMsg = rawMsg.replace(/^UPLOAD_FAILED:/, "");
+      if (isUploadErr) {
+        CAR_PHOTO_UPLOAD_ERROR = true;
+        el("carUploadStatus").className = "upload-status text-danger";
+        el("carUploadStatus").textContent = "Gagal upload: " + cleanMsg;
+        await G.uiAlert("Upload Foto Gagal", cleanMsg + "\n\nData mobil tidak disimpan karena upload foto gagal.", "error");
+      } else {
+        await G.uiAlert("Gagal Menyimpan Mobil", cleanMsg, "error");
+      }
     } finally {
       btn.disabled = false;
-      btn.textContent = "Simpan Mobil";
+      btn.textContent = el("carId").value ? "Update Mobil" : "Simpan Mobil";
     }
   }
 
