@@ -46,6 +46,8 @@
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+  -ms-touch-action: pan-x pan-y;
+  touch-action: pan-x pan-y;
 }
 
 html {
@@ -834,6 +836,29 @@ th {
   background: transparent;
 }
 
+.td-stack {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.td-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.td-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  width: 100%;
+}
+
+html.is-ios input.form-control,
+html.is-ios select.form-control,
+html.is-ios textarea.form-control {
+  font-size: 16px !important;
+}
+
 @media (max-width: 768px) {
   html {
     font-size: 12.5px;
@@ -929,10 +954,25 @@ th {
   .modal-footer .btn { flex: 1; }
 
   /* Tabel responsif jadi kartu di HP */
+  .table-wrap {
+    overflow-x: visible;
+  }
   .responsive-table thead { display: none; }
   .responsive-table,
   .responsive-table tbody,
   .responsive-table tr,
+  .responsive-table td {
+    display: block;
+    width: 100%;
+  }
+  .responsive-table tr {
+    background: var(--surface);
+    box-shadow: var(--neu-out-sm);
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
   .responsive-table td {
     display: flex;
     justify-content: space-between;
@@ -944,8 +984,6 @@ th {
   }
   .responsive-table td:last-child {
     border-bottom: none;
-    padding-top: 9px;
-    justify-content: flex-start;
   }
   .responsive-table td::before {
     content: attr(data-label);
@@ -957,6 +995,10 @@ th {
     flex-shrink: 0;
     min-width: 88px;
     padding-top: 2px;
+  }
+  .responsive-table td[data-label="Aksi"] {
+    padding-top: 10px;
+    justify-content: flex-start;
   }
   .responsive-table td[data-label="Aksi"]::before {
     display: none;
@@ -1182,22 +1224,6 @@ th {
   font-weight: 700;
 }
 
-.td-stack {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.td-badges {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.td-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  width: 100%;
-}
 
 /* Monitor Countdown Pill */
 .monitor-countdown {

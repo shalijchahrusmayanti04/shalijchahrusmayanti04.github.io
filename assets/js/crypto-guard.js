@@ -15,6 +15,13 @@
     e.preventDefault();
   });
 
+  // Tandai iOS agar input tidak memicu auto-zoom Safari
+  try {
+    if (/iP(ad|hone|od)/i.test(navigator.userAgent || "") || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
+      document.documentElement.classList.add("is-ios");
+    }
+  } catch (_) {}
+
   // Kunci zoom in/out pada mobile (pinch, gesture Safari, double-tap, dan Ctrl+wheel)
   ["gesturestart", "gesturechange", "gestureend"].forEach(function (ev) {
     document.addEventListener(ev, function (e) {
