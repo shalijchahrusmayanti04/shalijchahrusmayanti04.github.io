@@ -1,0 +1,8 @@
+# File rahasia & alat lokal yang TIDAK boleh di-upload ke repository GitHub publik
+gas/
+tools/
+README_SETUP.md
+secrets-lokal.txt
+*.log
+.DS_Store
+Thumbs.db

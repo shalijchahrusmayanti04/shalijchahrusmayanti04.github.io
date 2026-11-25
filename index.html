@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Katalog Rental Mobil</title>
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="brand">
+        <div class="brand-icon">RM</div>
+        <div>
+          <div id="navRentalName">Rental Mobil</div>
+          <div class="small text-muted" id="navRentalSub">Sewa Mobil Mudah &amp; Terpercaya</div>
+        </div>
+      </a>
+      <div class="nav-actions">
+        <a id="navWaBtn" href="#" target="_blank" class="btn btn-wa btn-sm hidden">WhatsApp CS</a>
+        <a href="admin.html" class="btn btn-ghost btn-sm">Panel Admin</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" id="appRoot">
+    <!-- Security Lock Container -->
+    <div id="lockScreen" class="lock-screen hidden">
+      <h2 style="margin-bottom:10px;color:#f87171;">Akses Terkunci (Enkripsi Domain)</h2>
+      <p id="lockMessage" class="text-muted" style="margin-bottom:16px;"></p>
+      <div class="alert alert-info small">
+        Aplikasi ini dilindungi enkripsi <strong>ChaCha20-HMAC-SHA256</strong> yang terikat pada domain resmi GitHub Pages pemilik.
+      </div>
+    </div>
+
+    <!-- Main Public Content -->
+    <div id="mainContent" class="hidden">
+      <section class="hero">
+        <div>
+          <h1 id="heroTitle">Armada Siap Jalan</h1>
+          <p id="heroDesc">Pilih mobil favorit Anda, pilih layanan ambil sendiri di garasi atau diantar langsung ke lokasi Anda, lalu konfirmasi instan via WhatsApp.</p>
+          <div class="hero-pills">
+            <span class="pill" id="pillGarage">Garasi: -</span>
+            <span class="pill" id="pillDelivery">Layanan Antar: Tersedia</span>
+            <span class="pill" id="pillPenalty">Denda Overtime: 10%/jam</span>
+          </div>
+        </div>
+      </section>
+
+      <div id="publicAlert" class="alert alert-warning hidden"></div>
+
+      <section class="filter-bar">
+        <input type="text" id="searchInput" class="form-control" placeholder="Cari nama mobil, merk, atau tahun..." />
+        <select id="filterTransmisi" class="form-control">
+          <option value="ALL">Semua Transmisi</option>
+          <option value="Matic">Matic</option>
+          <option value="Manual">Manual</option>
+        </select>
+        <select id="filterStatus" class="form-control">
+          <option value="Tersedia">Hanya yang Tersedia</option>
+          <option value="ALL">Semua Armada</option>
+        </select>
+      </section>
+
+      <section id="carGrid" class="car-grid">
+        <div class="panel-card">Memuat data armada dari Google Sheets...</div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Modal Booking Publik -->
+  <div id="bookingModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalCarTitle">Booking Mobil</h3>
+          <div class="small text-muted" id="modalCarMeta"></div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="closeBookingModal">Tutup</button>
+      </div>
+      <form id="bookingForm">
+        <div class="modal-body">
+          <input type="hidden" id="bookCarId" />
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Nama Lengkap *</label>
+              <input type="text" id="bookName" class="form-control" required placeholder="Contoh: Budi Santoso" />
+            </div>
+            <div class="form-group">
+              <label>No. WhatsApp Aktif *</label>
+              <input type="tel" id="bookWa" class="form-control" required placeholder="08123456789" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>No. KTP / SIM *</label>
+              <input type="text" id="bookNik" class="form-control" required placeholder="Nomor identitas penyewa" />
+            </div>
+            <div class="form-group">
+              <label>Layanan Sopir</label>
+              <select id="bookDriver" class="form-control">
+                <option value="Lepas Kunci">Lepas Kunci (Tanpa Sopir)</option>
+                <option value="Dengan Sopir">Dengan Sopir (+Biaya/Hari)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Tanggal &amp; Jam Mulai *</label>
+              <input type="datetime-local" id="bookStart" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label>Tanggal &amp; Jam Selesai *</label>
+              <input type="datetime-local" id="bookEnd" class="form-control" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Metode Pengambilan Mobil *</label>
+            <select id="bookDelivery" class="form-control">
+              <option value="Ambil Sendiri">Ambil Sendiri di Garasi (Gratis)</option>
+              <option value="Diantar">Diantar ke Lokasi Saya (+Biaya Antar)</option>
+            </select>
+          </div>
+
+          <div class="form-group hidden" id="bookDeliveryAddrWrap">
+            <label>Alamat Pengantaran Lengkap *</label>
+            <textarea id="bookDeliveryAddr" class="form-control" rows="2" placeholder="Masukkan alamat lengkap / patokan / link Google Maps"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Alamat Domisili / Catatan Tambahan</label>
+            <input type="text" id="bookNotes" class="form-control" placeholder="Alamat KTP atau permintaan khusus" />
+          </div>
+
+          <div class="summary-box">
+            <div class="summary-row"><span>Durasi Sewa</span><strong id="sumDays">1 Hari</strong></div>
+            <div class="summary-row"><span>Subtotal Sewa Mobil</span><span id="sumBase">Rp 0</span></div>
+            <div class="summary-row"><span>Biaya Sopir</span><span id="sumDriver">Rp 0</span></div>
+            <div class="summary-row"><span>Biaya Pengantaran</span><span id="sumDelivery">Rp 0</span></div>
+            <div class="summary-row total"><span>Estimasi Total</span><span id="sumTotal">Rp 0</span></div>
+            <div class="small text-muted" id="sumOvertimeNote" style="margin-top:8px;"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="cancelBookingBtn">Batal</button>
+          <button type="submit" class="btn btn-wa" id="submitBookingBtn">Pesan &amp; Kirim WhatsApp</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="assets/js/crypto-guard.js"></script>
+  <script src="assets/js/config.enc.js"></script>
+  <script src="assets/js/public.js"></script>
+</body>
+</html>

@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Admin - Manajemen Rental Mobil</title>
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="brand">
+        <div class="brand-icon">RM</div>
+        <div>
+          <div id="adminBrandName">Admin Rental Mobil</div>
+          <div class="small text-muted">Manajemen Armada, Transaksi &amp; Denda</div>
+        </div>
+      </a>
+      <div class="nav-actions">
+        <a href="index.html" class="btn btn-ghost btn-sm">Lihat Katalog</a>
+        <button type="button" id="refreshDataBtn" class="btn btn-ghost btn-sm hidden">Refresh Data</button>
+        <button type="button" id="logoutBtn" class="btn btn-danger btn-sm hidden">Keluar</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Domain Lock Screen -->
+    <div id="lockScreen" class="lock-screen hidden">
+      <h2 style="margin-bottom:10px;color:#f87171;">Akses Terkunci (Enkripsi Domain)</h2>
+      <p id="lockMessage" class="text-muted" style="margin-bottom:16px;"></p>
+    </div>
+
+    <!-- Admin Login Screen -->
+    <div id="loginScreen" class="lock-screen hidden" style="border-color: var(--border);">
+      <h2 style="margin-bottom:8px;">Login Admin Rental</h2>
+      <p class="text-muted small" style="margin-bottom:18px;">Masukkan PIN Admin untuk mengakses database Google Sheets.</p>
+      <div id="loginAlert" class="alert alert-danger hidden"></div>
+      <form id="loginForm">
+        <div class="form-group" style="text-align:left;">
+          <label>PIN / Password Admin</label>
+          <input type="password" id="loginPin" class="form-control" required placeholder="Masukkan PIN Admin (default: 123456)" />
+        </div>
+        <button type="submit" id="loginSubmitBtn" class="btn btn-primary" style="width:100%;">Masuk Panel Admin</button>
+      </form>
+    </div>
+
+    <!-- Admin Workspace -->
+    <div id="adminContent" class="hidden">
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Armada Tersedia</div>
+          <div class="kpi-value text-success" id="kpiTersedia">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Sedang Disewa</div>
+          <div class="kpi-value" style="color:var(--primary);" id="kpiDisewa">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Jatuh Tempo / Terlambat</div>
+          <div class="kpi-value text-danger" id="kpiOverdue">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Booking Pending</div>
+          <div class="kpi-value text-warning" id="kpiPending">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total Omset (Lunas/DP)</div>
+          <div class="kpi-value" id="kpiOmset">Rp 0</div>
+        </div>
+      </section>
+
+      <nav class="tabs">
+        <button class="tab-btn active" data-tab="tabMonitor">Monitor Jatuh Tempo &amp; WA</button>
+        <button class="tab-btn" data-tab="tabTransaksi">Transaksi &amp; Pengembalian</button>
+        <button class="tab-btn" data-tab="tabArmada">Armada Mobil</button>
+        <button class="tab-btn" data-tab="tabPelanggan">Pelanggan</button>
+        <button class="tab-btn" data-tab="tabLaporan">Laporan Keuangan</button>
+        <button class="tab-btn" data-tab="tabPengaturan">Pengaturan</button>
+      </nav>
+
+      <!-- TAB 1: MONITOR JATUH TEMPO & WA -->
+      <section id="tabMonitor" class="tab-panel">
+        <div class="panel-card">
+          <div class="panel-header">
+            <div>
+              <h3>Monitoring Batas Waktu &amp; Peringatan WhatsApp</h3>
+              <div class="small text-muted" id="monitorRuleInfo">Aturan denda: 10%/jam setelah toleransi 30 menit.</div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" onclick="window.__openNewTrxModal()">+ Transaksi Sewa Baru</button>
+          </div>
+          <div id="dueMonitorList" class="due-list">
+            <div class="text-muted">Memuat data...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: TRANSAKSI -->
+      <section id="tabTransaksi" class="tab-panel hidden">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Daftar Transaksi Sewa</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <select id="trxStatusFilter" class="form-control" style="width:auto;">
+                <option value="ALL">Semua Status</option>
+                <option value="Pending">Pending (Booking Online)</option>
+                <option value="Berjalan">Sedang Berjalan</option>
+                <option value="Selesai">Selesai</option>
+                <option value="Dibatalkan">Dibatalkan</option>
+              </select>
+              <button type="button" class="btn btn-primary btn-sm" onclick="window.__openNewTrxModal()">+ Transaksi Baru</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Kode &amp; Tanggal</th>
+                  <th>Mobil</th>
+                  <th>Pelanggan</th>
+                  <th>Ambil / Antar</th>
+                  <th>Total &amp; Denda</th>
+                  <th>Status</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="trxTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: ARMADA -->
+      <section id="tabArmada" class="tab-panel hidden">
+        <div class="panel-card">
+          <div class="panel-header">
+            <div>
+              <h3>Manajemen Armada Mobil</h3>
+              <div class="small text-muted">Foto mobil mendukung link share Google Drive secara langsung.</div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" onclick="window.__openCarModal()">+ Tambah Mobil</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Foto</th>
+                  <th>Mobil &amp; Plat</th>
+                  <th>Spesifikasi</th>
+                  <th>Harga Sewa</th>
+                  <th>Status</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="carTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: PELANGGAN -->
+      <section id="tabPelanggan" class="tab-panel hidden">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Database Pelanggan</h3>
+            <input type="text" id="custSearch" class="form-control" style="max-width:260px;" placeholder="Cari nama / WA / NIK..." />
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nama &amp; NIK/SIM</th>
+                  <th>WhatsApp</th>
+                  <th>Alamat</th>
+                  <th>Total Sewa</th>
+                  <th>Status</th>
+                  <th>Catatan</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="custTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: LAPORAN -->
+      <section id="tabLaporan" class="tab-panel hidden">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Laporan Pendapatan &amp; Denda</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input type="month" id="reportMonth" class="form-control" style="width:auto;" />
+              <button type="button" id="exportCsvBtn" class="btn btn-success btn-sm">Export CSV</button>
+            </div>
+          </div>
+          <div class="kpi-grid" id="reportSummaryGrid"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Kode</th>
+                  <th>Mobil</th>
+                  <th>Pelanggan</th>
+                  <th>Sewa</th>
+                  <th>Biaya Antar</th>
+                  <th>Sopir</th>
+                  <th>Denda</th>
+                  <th>Total Akhir</th>
+                  <th>Bayar</th>
+                </tr>
+              </thead>
+              <tbody id="reportTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: PENGATURAN -->
+      <section id="tabPengaturan" class="tab-panel hidden">
+        <div class="panel-card">
+          <h3 style="margin-bottom:14px;">Pengaturan Bisnis, Denda &amp; Tarif Antar</h3>
+          <form id="settingsForm">
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>Nama Rental Mobil</label>
+                <input type="text" id="setNamaRental" class="form-control" required />
+              </div>
+              <div class="form-group">
+                <label>No. WhatsApp Admin (Format 628xxx)</label>
+                <input type="text" id="setWaAdmin" class="form-control" required />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Alamat Garasi (Lokasi Ambil Sendiri)</label>
+              <input type="text" id="setAlamatGarasi" class="form-control" required />
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>Persentase Denda per Jam (% dari Harga Harian)</label>
+                <input type="number" id="setPersenDenda" class="form-control" min="0" max="100" step="0.5" required />
+              </div>
+              <div class="form-group">
+                <label>Toleransi Keterlambatan (Menit)</label>
+                <input type="number" id="setToleransi" class="form-control" min="0" required />
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>Ambang Peringatan Jatuh Tempo (Menit Sebelum Selesai)</label>
+                <input type="number" id="setAmbang" class="form-control" min="15" required />
+              </div>
+              <div class="form-group">
+                <label>Biaya Antar Default (Rp)</label>
+                <input type="number" id="setBiayaAntar" class="form-control" min="0" required />
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>Biaya Jasa Sopir per Hari (Rp)</label>
+                <input type="number" id="setBiayaSopir" class="form-control" min="0" required />
+              </div>
+              <div class="form-group">
+                <label>Ubah PIN Admin (Kosongkan jika tidak diubah)</label>
+                <input type="password" id="setPinBaru" class="form-control" placeholder="Minimal 4 karakter" />
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="saveSettingsBtn">Simpan Pengaturan</button>
+          </form>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- MODAL: TAMBAH / EDIT MOBIL (Google Drive Image) -->
+  <div id="carModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="carModalTitle">Tambah Mobil</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__closeModal('carModal')">Tutup</button>
+      </div>
+      <form id="carForm">
+        <div class="modal-body">
+          <input type="hidden" id="carId" />
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Nama Mobil *</label>
+              <input type="text" id="carName" class="form-control" required placeholder="Toyota Avanza Veloz" />
+            </div>
+            <div class="form-group">
+              <label>Merk</label>
+              <input type="text" id="carBrand" class="form-control" placeholder="Toyota" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Plat Nomor *</label>
+              <input type="text" id="carPlate" class="form-control" required placeholder="B 1234 ABC" />
+            </div>
+            <div class="form-group">
+              <label>Tahun</label>
+              <input type="number" id="carYear" class="form-control" value="2023" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Transmisi</label>
+              <select id="carTrans" class="form-control">
+                <option value="Matic">Matic</option>
+                <option value="Manual">Manual</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Kapasitas Kursi</label>
+              <input type="number" id="carSeats" class="form-control" value="7" min="2" max="20" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Harga Sewa 24 Jam (Rp) *</label>
+              <input type="number" id="carPrice24" class="form-control" required placeholder="400000" />
+            </div>
+            <div class="form-group">
+              <label>Harga Sewa 12 Jam (Rp)</label>
+              <input type="number" id="carPrice12" class="form-control" placeholder="275000" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Status Mobil</label>
+            <select id="carStatus" class="form-control">
+              <option value="Tersedia">Tersedia</option>
+              <option value="Disewa">Disewa</option>
+              <option value="Servis">Servis</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Link Foto Google Drive</label>
+            <input type="text" id="carPhotoUrl" class="form-control" placeholder="Tempel link share Google Drive (https://drive.google.com/file/d/.../view)" />
+            <div class="small text-muted">Pastikan izin file di Google Drive diset ke <strong>"Siapa saja yang memiliki link"</strong>.</div>
+            <div id="carPhotoPreviewWrap"></div>
+          </div>
+
+          <div class="form-group">
+            <label>Deskripsi / Fasilitas</label>
+            <textarea id="carDesc" class="form-control" rows="2" placeholder="AC dingin, audio bluetooth, kondisi prima..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="window.__closeModal('carModal')">Batal</button>
+          <button type="submit" class="btn btn-primary" id="saveCarBtn">Simpan Mobil</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: TRANSAKSI BARU -->
+  <div id="newTrxModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Buat Transaksi Sewa Baru</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__closeModal('newTrxModal')">Tutup</button>
+      </div>
+      <form id="newTrxForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Pilih Mobil *</label>
+            <select id="trxCarId" class="form-control" required></select>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Nama Pelanggan *</label>
+              <input type="text" id="trxName" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label>No. WhatsApp *</label>
+              <input type="tel" id="trxWa" class="form-control" required placeholder="08123456789" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>No. KTP / SIM</label>
+              <input type="text" id="trxNik" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Alamat Pelanggan</label>
+              <input type="text" id="trxAddr" class="form-control" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Mulai Sewa *</label>
+              <input type="datetime-local" id="trxStart" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label>Batas Waktu Selesai *</label>
+              <input type="datetime-local" id="trxEnd" class="form-control" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Metode Ambil / Antar</label>
+              <select id="trxDeliveryMethod" class="form-control">
+                <option value="Ambil Sendiri">Ambil Sendiri di Garasi (Rp 0)</option>
+                <option value="Diantar">Diantar ke Pelanggan (+Charge)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Biaya Antar (Rp)</label>
+              <input type="number" id="trxDeliveryFee" class="form-control" value="0" min="0" />
+            </div>
+          </div>
+
+          <div class="form-group hidden" id="trxDeliveryAddrWrap">
+            <label>Alamat Pengantaran</label>
+            <input type="text" id="trxDeliveryAddr" class="form-control" placeholder="Alamat tujuan pengantaran mobil" />
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Layanan Sopir</label>
+              <select id="trxDriverMethod" class="form-control">
+                <option value="Lepas Kunci">Lepas Kunci</option>
+                <option value="Dengan Sopir">Dengan Sopir</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Total Biaya Sopir (Rp)</label>
+              <input type="number" id="trxDriverFee" class="form-control" value="0" min="0" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>KM Awal</label>
+              <input type="number" id="trxKmAwal" class="form-control" value="0" min="0" />
+            </div>
+            <div class="form-group">
+              <label>DP / Pembayaran Awal (Rp)</label>
+              <input type="number" id="trxDp" class="form-control" value="0" min="0" />
+            </div>
+          </div>
+
+          <div class="summary-box">
+            <div class="summary-row"><span>Durasi Sewa</span><strong id="trxSumDays">1 Hari</strong></div>
+            <div class="summary-row"><span>Subtotal Sewa</span><span id="trxSumBase">Rp 0</span></div>
+            <div class="summary-row"><span>Biaya Antar</span><span id="trxSumDeliv">Rp 0</span></div>
+            <div class="summary-row"><span>Biaya Sopir</span><span id="trxSumDrv">Rp 0</span></div>
+            <div class="summary-row total"><span>Total Tagihan</span><span id="trxSumTotal">Rp 0</span></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="window.__closeModal('newTrxModal')">Batal</button>
+          <button type="submit" class="btn btn-primary" id="saveNewTrxBtn">Mulai Sewa</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CHECK-IN / PENGEMBALIAN + DENDA OTOMATIS -->
+  <div id="checkinModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Pengembalian Mobil &amp; Hitung Denda</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__closeModal('checkinModal')">Tutup</button>
+      </div>
+      <form id="checkinForm">
+        <div class="modal-body">
+          <input type="hidden" id="ciTrxId" />
+          <div id="ciInfoBox" class="alert alert-info"></div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Waktu Pengembalian Aktual *</label>
+              <input type="datetime-local" id="ciReturnTime" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label>KM Akhir</label>
+              <input type="number" id="ciKmAkhir" class="form-control" min="0" value="0" />
+            </div>
+          </div>
+
+          <div class="summary-box" id="ciPenaltyPreview"></div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Override Denda (Opsional, kosong = otomatis)</label>
+              <input type="number" id="ciDendaOverride" class="form-control" min="0" placeholder="Otomatis sesuai rumus" />
+            </div>
+            <div class="form-group">
+              <label>Biaya Tambahan Lain (BBM/Kerusakan)</label>
+              <input type="number" id="ciExtraFee" class="form-control" min="0" value="0" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Pembayaran Pelunasan Sekarang (Rp)</label>
+              <input type="number" id="ciPayNow" class="form-control" min="0" value="0" />
+            </div>
+            <div class="form-group">
+              <label>Status Mobil Setelah Kembali</label>
+              <select id="ciCarStatus" class="form-control">
+                <option value="Tersedia">Tersedia (Siap Disewa)</option>
+                <option value="Servis">Servis / Perawatan</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Catatan Kondisi Mobil</label>
+            <textarea id="ciNotes" class="form-control" rows="2" placeholder="Bensin penuh, body mulus, dll."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="window.__closeModal('checkinModal')">Batal</button>
+          <button type="submit" class="btn btn-success" id="saveCheckinBtn">Selesaikan Pengembalian</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT PELANGGAN -->
+  <div id="custModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Edit Status &amp; Catatan Pelanggan</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__closeModal('custModal')">Tutup</button>
+      </div>
+      <form id="custForm">
+        <div class="modal-body">
+          <input type="hidden" id="editCustId" />
+          <div class="form-group">
+            <label>Nama Pelanggan</label>
+            <input type="text" id="editCustName" class="form-control" required />
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>No. WhatsApp</label>
+              <input type="text" id="editCustWa" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label>Status Tag</label>
+              <select id="editCustTag" class="form-control">
+                <option value="Normal">Normal</option>
+                <option value="VIP">VIP (Prioritas)</option>
+                <option value="Blacklist">Blacklist (Bermasalah)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Catatan Internal</label>
+            <textarea id="editCustNotes" class="form-control" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="window.__closeModal('custModal')">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: INVOICE / STRUK CETAK -->
+  <div id="invoiceModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Invoice / Struk Sewa Mobil</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__closeModal('invoiceModal')">Tutup</button>
+      </div>
+      <div class="modal-body">
+        <div id="invoicePaper" class="invoice-paper"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="window.__closeModal('invoiceModal')">Tutup</button>
+        <button type="button" class="btn btn-primary" onclick="window.print()">Cetak / Simpan PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/crypto-guard.js"></script>
+  <script src="assets/js/config.enc.js"></script>
+  <script src="assets/js/admin.js"></script>
+</body>
+</html>
