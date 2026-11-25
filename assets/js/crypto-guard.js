@@ -15,6 +15,42 @@
     e.preventDefault();
   });
 
+  // Kunci zoom in/out pada mobile (pinch, gesture Safari, double-tap, dan Ctrl+wheel)
+  ["gesturestart", "gesturechange", "gestureend"].forEach(function (ev) {
+    document.addEventListener(ev, function (e) {
+      e.preventDefault();
+    }, { passive: false });
+  });
+
+  document.addEventListener("touchstart", function (e) {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener("touchmove", function (e) {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+
+  let lastTouchEndAt = 0;
+  document.addEventListener("touchend", function (e) {
+    const now = Date.now();
+    if (now - lastTouchEndAt <= 300) {
+      if (!e.target || !e.target.closest("button, a, input, select, textarea, label")) {
+        e.preventDefault();
+      }
+    }
+    lastTouchEndAt = now;
+  }, { passive: false });
+
+  document.addEventListener("wheel", function (e) {
+    if (e.ctrlKey || e.metaKey) e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && ["+", "-", "=", "_"].indexOf(e.key) !== -1) {
+      e.preventDefault();
+    }
+  });
+
   const te = new TextEncoder();
   const td = new TextDecoder();
 

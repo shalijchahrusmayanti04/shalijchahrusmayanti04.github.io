@@ -11,6 +11,7 @@
   let TOKEN = sessionStorage.getItem(TOKEN_KEY) || "";
   let DATA = { cars: [], brands: [], types: [], transactions: [], customers: [], settings: {} };
   let MONITOR_TIMER = null;
+  let MONITOR_TICK_TIMER = null;
   let IS_UPLOADING_PHOTO = false;
   let CAR_PHOTO_UPLOAD_ERROR = false;
   let CAR_PHOTO_ITEMS = [];
@@ -209,6 +210,7 @@
     sessionStorage.removeItem(ACTIVE_TAB_KEY);
     sessionStorage.removeItem(ACTIVE_SUBTAB_KEY);
     if (MONITOR_TIMER) clearInterval(MONITOR_TIMER);
+    if (MONITOR_TICK_TIMER) clearInterval(MONITOR_TICK_TIMER);
     el("adminContent").classList.add("hidden");
     el("logoutBtn").classList.add("hidden");
     el("adminDockNav").classList.add("hidden");
@@ -254,6 +256,8 @@
         renderMonitor();
         renderKpis();
       }, 30000);
+      if (MONITOR_TICK_TIMER) clearInterval(MONITOR_TICK_TIMER);
+      MONITOR_TICK_TIMER = setInterval(tickMonitorCountdowns, 1000);
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal Memuat Data", err.message, "error");
@@ -320,6 +324,43 @@
   // ============================================================================
   // TAB 1: MONITOR JATUH TEMPO & PERINGATAN WHATSAPP
   // ============================================================================
+  function pad2(n) {
+    return String(Math.floor(Math.max(0, n))).padStart(2, "0");
+  }
+
+  function formatMonitorCountdown(endIso, toleransiMenit) {
+    const end = new Date(endIso);
+    if (isNaN(end.getTime())) return { text: "Sisa Waktu: -", cls: "" };
+    const diffMs = end.getTime() - Date.now();
+    if (diffMs > 0) {
+      const totalSec = Math.floor(diffMs / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      const cls = h < 2 ? "warn" : "";
+      return { text: "Sisa Waktu: " + h + "j " + pad2(m) + "m " + pad2(s) + "d", cls: cls };
+    }
+    const lateSec = Math.floor(Math.abs(diffMs) / 1000);
+    const h = Math.floor(lateSec / 3600);
+    const m = Math.floor((lateSec % 3600) / 60);
+    const s = lateSec % 60;
+    const lateMin = Math.floor(lateSec / 60);
+    const inTol = lateMin <= (Number(toleransiMenit) || 30);
+    return {
+      text: (inTol ? "Lewat (Toleransi): " : "Terlambat: +") + h + "j " + pad2(m) + "m " + pad2(s) + "d",
+      cls: inTol ? "warn" : "danger"
+    };
+  }
+
+  function tickMonitorCountdowns() {
+    document.querySelectorAll(".monitor-countdown[data-end]").forEach(node => {
+      const info = formatMonitorCountdown(node.dataset.end, node.dataset.tol);
+      node.className = "monitor-countdown" + (info.cls ? " " + info.cls : "");
+      const txtEl = node.querySelector(".monitor-countdown-txt");
+      if (txtEl) txtEl.textContent = info.text;
+    });
+  }
+
   function renderMonitor() {
     const rules = getPenaltyRules();
     const active = DATA.transactions.filter(t => t.status_sewa === "Berjalan");
@@ -352,6 +393,8 @@
         ? `<div class="text-danger small" style="font-weight:700;margin-top:4px;">Estimasi Denda Berjalan: ${G.formatRupiah(ov.denda)} (${ov.jamTelat} jam × ${rules.persen}%)</div>`
         : "";
 
+      const cd = formatMonitorCountdown(trx.tgl_jam_selesai, rules.toleransi);
+      const countdownHtml = `<div class="monitor-countdown ${cd.cls}" data-end="${G.escapeHtml(trx.tgl_jam_selesai)}" data-tol="${rules.toleransi}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="monitor-countdown-txt">${G.escapeHtml(cd.text)}</span></div>`;
       const remindedText = trx.terakhir_diingatkan
         ? `<div class="small text-muted">Terakhir diingatkan WA: ${G.formatDateTime(trx.terakhir_diingatkan)}</div>`
         : "";
@@ -371,6 +414,7 @@
               Batas Kembali: <strong>${G.formatDateTime(trx.tgl_jam_selesai)}</strong> •
               Sisa Tagihan Awal: ${G.formatRupiah(trx.sisa_bayar)}
             </div>
+            ${countdownHtml}
             ${dendaText}
             ${remindedText}
           </div>
@@ -480,35 +524,47 @@
       return `
         <tr>
           <td data-label="Kode & Tanggal">
-            <strong>${G.escapeHtml(t.id_transaksi)}</strong>
-            <div class="small text-muted">Mulai: ${G.formatDateTime(t.tgl_jam_mulai)}</div>
-            <div class="small text-muted">Tempo: ${G.formatDateTime(t.tgl_jam_selesai)}</div>
+            <div class="td-stack">
+              <strong>${G.escapeHtml(t.id_transaksi)}</strong>
+              <div class="small text-muted">Mulai: ${G.formatDateTime(t.tgl_jam_mulai)}</div>
+              <div class="small text-muted">Tempo: ${G.formatDateTime(t.tgl_jam_selesai)}</div>
+            </div>
           </td>
           <td data-label="Mobil">
-            <strong>${G.escapeHtml(t.nama_mobil)}</strong>
-            <div class="small text-muted">${G.escapeHtml(t.plat_nomor)} • ${G.escapeHtml(t.durasi_hari)} hari</div>
+            <div class="td-stack">
+              <strong>${G.escapeHtml(t.nama_mobil)}</strong>
+              <div class="small text-muted">${G.escapeHtml(t.plat_nomor)} • ${G.escapeHtml(t.durasi_hari)} hari</div>
+            </div>
           </td>
           <td data-label="Pelanggan">
-            <strong>${G.escapeHtml(t.nama_pelanggan)}</strong>
-            <div class="small text-muted">${G.escapeHtml(t.no_wa)}</div>
-            <div class="small text-muted">${G.escapeHtml(t.layanan_sopir)}</div>
+            <div class="td-stack">
+              <strong>${G.escapeHtml(t.nama_pelanggan)}</strong>
+              <div class="small text-muted">${G.escapeHtml(t.no_wa)}</div>
+              <div class="small text-muted">${G.escapeHtml(t.layanan_sopir)}</div>
+            </div>
           </td>
           <td data-label="Ambil / Antar">
-            <span class="badge ${t.metode_ambil === "Diantar" ? "badge-info" : "badge-muted"}">${G.escapeHtml(t.metode_ambil)}</span>
-            ${Number(t.biaya_antar) > 0 ? `<div class="small text-muted">+${G.formatRupiah(t.biaya_antar)}</div>` : ""}
-            ${t.metode_ambil === "Diantar" ? `<div class="small text-muted">${G.escapeHtml(t.alamat_antar)}</div>` : ""}
+            <div class="td-stack">
+              <div><span class="badge ${t.metode_ambil === "Diantar" ? "badge-info" : "badge-muted"}">${G.escapeHtml(t.metode_ambil)}</span></div>
+              ${Number(t.biaya_antar) > 0 ? `<div class="small text-muted">+${G.formatRupiah(t.biaya_antar)}</div>` : ""}
+              ${t.metode_ambil === "Diantar" ? `<div class="small text-muted">${G.escapeHtml(t.alamat_antar)}</div>` : ""}
+            </div>
           </td>
           <td data-label="Total & Denda">
-            <strong>${G.formatRupiah(t.total_akhir)}</strong>
-            ${liveOvHtml}
-            <div class="small text-muted">Sisa: ${G.formatRupiah(t.sisa_bayar)}</div>
+            <div class="td-stack">
+              <strong>${G.formatRupiah(t.total_akhir)}</strong>
+              ${liveOvHtml}
+              <div class="small text-muted">Sisa: ${G.formatRupiah(t.sisa_bayar)}</div>
+            </div>
           </td>
           <td data-label="Status">
-            <div><span class="badge ${stCls}">${G.escapeHtml(t.status_sewa)}</span></div>
-            <div style="margin-top:4px;"><span class="badge ${payCls}">${G.escapeHtml(t.status_bayar)}</span></div>
+            <div class="td-badges">
+              <span class="badge ${stCls}">${G.escapeHtml(t.status_sewa)}</span>
+              <span class="badge ${payCls}">${G.escapeHtml(t.status_bayar)}</span>
+            </div>
           </td>
           <td data-label="Aksi">
-            <div style="display:flex;gap:5px;flex-wrap:wrap;width:100%;">${actions.join("")}</div>
+            <div class="td-actions">${actions.join("")}</div>
           </td>
         </tr>
       `;
@@ -1398,7 +1454,7 @@
       const tagCls = c.status_tag === "VIP" ? "badge-success" : (c.status_tag === "Blacklist" ? "badge-danger" : "badge-muted");
       return `
         <tr>
-          <td data-label="Nama & ID"><strong>${G.escapeHtml(c.nama)}</strong><div class="small text-muted">ID: ${G.escapeHtml(c.nik_sim)}</div></td>
+          <td data-label="Nama & ID"><div class="td-stack"><strong>${G.escapeHtml(c.nama)}</strong><div class="small text-muted">ID: ${G.escapeHtml(c.nik_sim)}</div></div></td>
           <td data-label="WhatsApp"><a href="${G.buildWhatsAppUrl(c.no_wa, "Halo " + c.nama)}" target="_blank" class="text-success">${G.escapeHtml(c.no_wa)}</a></td>
           <td data-label="Alamat" class="small">${G.escapeHtml(c.alamat)}</td>
           <td data-label="Total Sewa"><strong>${G.escapeHtml(c.total_sewa)}x</strong></td>
