@@ -3,6 +3,7 @@
 
   const G = window.RentalGuard;
   const TOKEN_KEY = "rm_admin_token_v1";
+  const DEFAULT_DRIVE_FOLDER = "https://drive.google.com/drive/folders/1vDgNQXMj9WatFSJPlbDDmkybk-euko7u?usp=sharing";
 
   let CONFIG = null;
   let TOKEN = sessionStorage.getItem(TOKEN_KEY) || "";
@@ -50,6 +51,19 @@
 
     // Car Form & Google Drive preview
     el("carPhotoUrl").addEventListener("input", updateCarPhotoPreview);
+    el("carTakePhotoBtn").addEventListener("click", () => el("carCameraInput").click());
+    el("carPickGalleryBtn").addEventListener("click", () => el("carGalleryInput").click());
+    el("carCameraInput").addEventListener("change", e => handlePhotoUpload(e.target.files[0], "car"));
+    el("carGalleryInput").addEventListener("change", e => handlePhotoUpload(e.target.files[0], "car"));
+
+    el("ciTakePhotoBtn").addEventListener("click", () => el("ciCameraInput").click());
+    el("ciPickGalleryBtn").addEventListener("click", () => el("ciGalleryInput").click());
+    el("ciCameraInput").addEventListener("change", e => handlePhotoUpload(e.target.files[0], "ci"));
+    el("ciGalleryInput").addEventListener("change", e => handlePhotoUpload(e.target.files[0], "ci"));
+
+    el("setFolderDrive").addEventListener("input", () => {
+      el("openDriveFolderLink").href = el("setFolderDrive").value.trim() || DEFAULT_DRIVE_FOLDER;
+    });
     el("carForm").addEventListener("submit", handleSaveCar);
 
     // New Transaction Form
@@ -366,36 +380,36 @@
 
       return `
         <tr>
-          <td>
+          <td data-label="Kode & Tanggal">
             <strong>${G.escapeHtml(t.id_transaksi)}</strong>
             <div class="small text-muted">Mulai: ${G.formatDateTime(t.tgl_jam_mulai)}</div>
             <div class="small text-muted">Tempo: ${G.formatDateTime(t.tgl_jam_selesai)}</div>
           </td>
-          <td>
+          <td data-label="Mobil">
             <strong>${G.escapeHtml(t.nama_mobil)}</strong>
             <div class="small text-muted">${G.escapeHtml(t.plat_nomor)} • ${G.escapeHtml(t.durasi_hari)} hari</div>
           </td>
-          <td>
+          <td data-label="Pelanggan">
             <strong>${G.escapeHtml(t.nama_pelanggan)}</strong>
             <div class="small text-muted">${G.escapeHtml(t.no_wa)}</div>
             <div class="small text-muted">${G.escapeHtml(t.layanan_sopir)}</div>
           </td>
-          <td>
+          <td data-label="Ambil / Antar">
             <span class="badge ${t.metode_ambil === "Diantar" ? "badge-info" : "badge-muted"}">${G.escapeHtml(t.metode_ambil)}</span>
             ${Number(t.biaya_antar) > 0 ? `<div class="small text-muted">+${G.formatRupiah(t.biaya_antar)}</div>` : ""}
             ${t.metode_ambil === "Diantar" ? `<div class="small text-muted">${G.escapeHtml(t.alamat_antar)}</div>` : ""}
           </td>
-          <td>
+          <td data-label="Total & Denda">
             <strong>${G.formatRupiah(t.total_akhir)}</strong>
             ${liveOvHtml}
             <div class="small text-muted">Sisa: ${G.formatRupiah(t.sisa_bayar)}</div>
           </td>
-          <td>
+          <td data-label="Status">
             <div><span class="badge ${stCls}">${G.escapeHtml(t.status_sewa)}</span></div>
             <div style="margin-top:4px;"><span class="badge ${payCls}">${G.escapeHtml(t.status_bayar)}</span></div>
           </td>
-          <td>
-            <div style="display:flex;gap:5px;flex-wrap:wrap;">${actions.join("")}</div>
+          <td data-label="Aksi">
+            <div style="display:flex;gap:5px;flex-wrap:wrap;width:100%;">${actions.join("")}</div>
           </td>
         </tr>
       `;
@@ -547,6 +561,9 @@
     G.setRupiahInput(el("ciExtraFee"), 0);
     G.setRupiahInput(el("ciPayNow"), 0);
     el("ciNotes").value = "";
+    el("ciPhotoUrl").value = "";
+    el("ciUploadStatus").textContent = "";
+    el("ciPhotoPreviewWrap").innerHTML = "";
 
     el("ciInfoBox").innerHTML =
       `<strong>${G.escapeHtml(ACTIVE_CI_TRX.nama_mobil)}</strong> (${G.escapeHtml(ACTIVE_CI_TRX.plat_nomor)}) • ` +
@@ -603,7 +620,7 @@
           biaya_tambahan_lain: G.parseRupiah(el("ciExtraFee").value),
           bayar_tambahan: G.parseRupiah(el("ciPayNow").value),
           status_mobil_kembali: el("ciCarStatus").value,
-          catatan_kondisi: el("ciNotes").value.trim()
+          catatan_kondisi: [el("ciNotes").value.trim(), el("ciPhotoUrl").value.trim() ? ("Foto Kondisi: " + el("ciPhotoUrl").value.trim()) : ""].filter(Boolean).join(" | ")
         }
       });
       if (!res.ok) throw new Error(res.error);
@@ -636,24 +653,24 @@
       const stCls = c.status === "Tersedia" ? "badge-success" : (c.status === "Disewa" ? "badge-warning" : "badge-danger");
       return `
         <tr>
-          <td style="width:110px;">
+          <td data-label="Foto" style="width:110px;">
             <div style="width:96px;height:62px;border-radius:8px;overflow:hidden;border:1px solid var(--border);">
               ${G.renderCarImage(c.foto_url, c.nama_mobil, "car-img")}
             </div>
           </td>
-          <td>
+          <td data-label="Mobil & Plat">
             <strong>${G.escapeHtml(c.nama_mobil)}</strong>
             <div class="small text-muted">${G.escapeHtml(c.plat_nomor)} • ${G.escapeHtml(c.tahun)}</div>
           </td>
-          <td class="small">
+          <td data-label="Spesifikasi" class="small">
             ${G.escapeHtml(c.transmisi)} • ${G.escapeHtml(c.kapasitas)} Kursi
             <div class="text-muted">${G.escapeHtml(c.merk)}</div>
           </td>
-          <td>
+          <td data-label="Harga Sewa">
             <strong>${G.formatRupiah(c.harga_24jam)}</strong><span class="small text-muted">/24j</span>
             ${Number(c.harga_12jam) > 0 ? `<div class="small text-muted">${G.formatRupiah(c.harga_12jam)}/12j</div>` : ""}
           </td>
-          <td>
+          <td data-label="Status">
             <select class="form-control" style="padding:5px 8px;width:auto;" onchange="window.__changeCarStatus('${G.escapeHtml(c.id_mobil)}', this.value)">
               <option value="Tersedia" ${c.status === "Tersedia" ? "selected" : ""}>Tersedia</option>
               <option value="Disewa" ${c.status === "Disewa" ? "selected" : ""}>Disewa</option>
@@ -661,8 +678,8 @@
             </select>
             <div style="margin-top:4px;"><span class="badge ${stCls}">${G.escapeHtml(c.status)}</span></div>
           </td>
-          <td>
-            <div style="display:flex;gap:6px;">
+          <td data-label="Aksi">
+            <div style="display:flex;gap:6px;width:100%;">
               <button class="btn btn-ghost btn-sm" onclick="window.__openCarModal('${G.escapeHtml(c.id_mobil)}')">Edit</button>
               <button class="btn btn-danger btn-sm" onclick="window.__deleteCar('${G.escapeHtml(c.id_mobil)}')">Hapus</button>
             </div>
@@ -675,6 +692,7 @@
   window.__openCarModal = function (idMobil) {
     el("carForm").reset();
     el("carId").value = "";
+    el("carUploadStatus").textContent = "";
     el("carModalTitle").textContent = idMobil ? "Edit Data Mobil" : "Tambah Mobil Baru";
 
     if (idMobil) {
@@ -697,6 +715,54 @@
     updateCarPhotoPreview();
     el("carModal").classList.add("open");
   };
+
+
+  async function handlePhotoUpload(file, target) {
+    if (!file) return;
+    const isCar = target === "car";
+    const statusEl = el(isCar ? "carUploadStatus" : "ciUploadStatus");
+    const urlEl = el(isCar ? "carPhotoUrl" : "ciPhotoUrl");
+
+    try {
+      statusEl.className = "upload-status text-warning";
+      statusEl.textContent = "Mengompresi foto dari HP...";
+      const compressed = await G.compressImageForUpload(file, 1280, 0.8);
+
+      statusEl.textContent = "Mengunggah ke folder Google Drive...";
+      const prefix = isCar ? (el("carPlate").value.trim() || "mobil") : (el("ciTrxId").value || "kondisi");
+      const fileName = prefix.replace(/\s+/g, "-") + "-" + Date.now() + ".jpg";
+
+      const res = await adminApi("upload_drive_image", {
+        data: {
+          base64: compressed.base64,
+          mimeType: compressed.mimeType,
+          fileName: fileName
+        }
+      });
+      if (!res.ok) throw new Error(res.error || "Gagal upload ke Google Drive.");
+
+      urlEl.value = res.url;
+      statusEl.className = "upload-status text-success";
+      statusEl.textContent = "Tersimpan di Google Drive!";
+
+      if (isCar) {
+        updateCarPhotoPreview();
+      } else {
+        el("ciPhotoPreviewWrap").innerHTML = G.renderCarImage(res.url, "Foto Kondisi", "preview-thumb");
+      }
+    } catch (err) {
+      statusEl.className = "upload-status text-danger";
+      statusEl.textContent = "Gagal upload: " + err.message;
+    } finally {
+      if (isCar) {
+        el("carCameraInput").value = "";
+        el("carGalleryInput").value = "";
+      } else {
+        el("ciCameraInput").value = "";
+        el("ciGalleryInput").value = "";
+      }
+    }
+  }
 
   function updateCarPhotoPreview() {
     const url = el("carPhotoUrl").value.trim();
@@ -784,13 +850,13 @@
       const tagCls = c.status_tag === "VIP" ? "badge-success" : (c.status_tag === "Blacklist" ? "badge-danger" : "badge-muted");
       return `
         <tr>
-          <td><strong>${G.escapeHtml(c.nama)}</strong><div class="small text-muted">ID: ${G.escapeHtml(c.nik_sim)}</div></td>
-          <td><a href="${G.buildWhatsAppUrl(c.no_wa, "Halo " + c.nama)}" target="_blank" class="text-success">${G.escapeHtml(c.no_wa)}</a></td>
-          <td class="small">${G.escapeHtml(c.alamat)}</td>
-          <td><strong>${G.escapeHtml(c.total_sewa)}x</strong></td>
-          <td><span class="badge ${tagCls}">${G.escapeHtml(c.status_tag || "Normal")}</span></td>
-          <td class="small text-muted">${G.escapeHtml(c.catatan || "-")}</td>
-          <td><button class="btn btn-ghost btn-sm" onclick="window.__openCustModal('${G.escapeHtml(c.id_pelanggan)}')">Edit</button></td>
+          <td data-label="Nama & ID"><strong>${G.escapeHtml(c.nama)}</strong><div class="small text-muted">ID: ${G.escapeHtml(c.nik_sim)}</div></td>
+          <td data-label="WhatsApp"><a href="${G.buildWhatsAppUrl(c.no_wa, "Halo " + c.nama)}" target="_blank" class="text-success">${G.escapeHtml(c.no_wa)}</a></td>
+          <td data-label="Alamat" class="small">${G.escapeHtml(c.alamat)}</td>
+          <td data-label="Total Sewa"><strong>${G.escapeHtml(c.total_sewa)}x</strong></td>
+          <td data-label="Status"><span class="badge ${tagCls}">${G.escapeHtml(c.status_tag || "Normal")}</span></td>
+          <td data-label="Catatan" class="small text-muted">${G.escapeHtml(c.catatan || "-")}</td>
+          <td data-label="Aksi"><button class="btn btn-ghost btn-sm" onclick="window.__openCustModal('${G.escapeHtml(c.id_pelanggan)}')">Edit</button></td>
         </tr>
       `;
     }).join("");
@@ -865,15 +931,15 @@
 
     el("reportTableBody").innerHTML = rows.map(r => `
       <tr>
-        <td>${G.escapeHtml(r.id_transaksi)}</td>
-        <td>${G.escapeHtml(r.nama_mobil)}</td>
-        <td>${G.escapeHtml(r.nama_pelanggan)}</td>
-        <td>${G.formatRupiah(r.subtotal_sewa)}</td>
-        <td>${G.formatRupiah(r.biaya_antar)}</td>
-        <td>${G.formatRupiah(r.biaya_sopir)}</td>
-        <td class="${Number(r.denda_keterlambatan) > 0 ? "text-danger" : ""}">${G.formatRupiah(r.denda_keterlambatan)}</td>
-        <td><strong>${G.formatRupiah(r.total_akhir)}</strong></td>
-        <td>${G.escapeHtml(r.status_bayar)}</td>
+        <td data-label="Kode">${G.escapeHtml(r.id_transaksi)}</td>
+        <td data-label="Mobil">${G.escapeHtml(r.nama_mobil)}</td>
+        <td data-label="Pelanggan">${G.escapeHtml(r.nama_pelanggan)}</td>
+        <td data-label="Sewa">${G.formatRupiah(r.subtotal_sewa)}</td>
+        <td data-label="Biaya Antar">${G.formatRupiah(r.biaya_antar)}</td>
+        <td data-label="Sopir">${G.formatRupiah(r.biaya_sopir)}</td>
+        <td data-label="Denda" class="${Number(r.denda_keterlambatan) > 0 ? "text-danger" : ""}">${G.formatRupiah(r.denda_keterlambatan)}</td>
+        <td data-label="Total Akhir"><strong>${G.formatRupiah(r.total_akhir)}</strong></td>
+        <td data-label="Status Bayar">${G.escapeHtml(r.status_bayar)}</td>
       </tr>
     `).join("");
   }
@@ -907,6 +973,8 @@
     el("setAmbang").value = s.ambang_pengingat_menit || 120;
     G.setRupiahInput(el("setBiayaAntar"), s.biaya_antar_default || 50000);
     G.setRupiahInput(el("setBiayaSopir"), s.biaya_sopir_per_hari || 150000);
+    el("setFolderDrive").value = s.folder_drive_url || DEFAULT_DRIVE_FOLDER;
+    el("openDriveFolderLink").href = el("setFolderDrive").value;
     el("setPinBaru").value = "";
   }
 
@@ -926,6 +994,7 @@
           ambang_pengingat_menit: el("setAmbang").value,
           biaya_antar_default: G.parseRupiah(el("setBiayaAntar").value),
           biaya_sopir_per_hari: G.parseRupiah(el("setBiayaSopir").value),
+          folder_drive_url: el("setFolderDrive").value.trim(),
           admin_pin_baru: el("setPinBaru").value.trim()
         }
       });

@@ -112,7 +112,7 @@
             </div>
           </div>
           <div class="table-wrap">
-            <table>
+            <table class="responsive-table">
               <thead>
                 <tr>
                   <th>Kode &amp; Tanggal</th>
@@ -136,12 +136,12 @@
           <div class="panel-header">
             <div>
               <h3>Manajemen Armada Mobil</h3>
-              <div class="small text-muted">Foto mobil mendukung link share Google Drive secara langsung.</div>
+              <div class="small text-muted">Ambil foto langsung dari kamera HP/galeri — otomatis masuk ke folder Google Drive.</div>
             </div>
             <button type="button" class="btn btn-primary btn-sm" onclick="window.__openCarModal()">+ Tambah Mobil</button>
           </div>
           <div class="table-wrap">
-            <table>
+            <table class="responsive-table">
               <thead>
                 <tr>
                   <th>Foto</th>
@@ -166,7 +166,7 @@
             <input type="text" id="custSearch" class="form-control" style="max-width:260px;" placeholder="Cari nama / WA / NIK..." />
           </div>
           <div class="table-wrap">
-            <table>
+            <table class="responsive-table">
               <thead>
                 <tr>
                   <th>Nama &amp; NIK/SIM</th>
@@ -196,7 +196,7 @@
           </div>
           <div class="kpi-grid" id="reportSummaryGrid"></div>
           <div class="table-wrap">
-            <table>
+            <table class="responsive-table">
               <thead>
                 <tr>
                   <th>Kode</th>
@@ -270,7 +270,17 @@
               </div>
             </div>
 
-            <button type="submit" class="btn btn-primary" id="saveSettingsBtn">Simpan Pengaturan</button>
+            
+            <div class="form-group">
+              <label>Link Folder Google Drive (Penyimpanan Foto Kamera &amp; Aset)</label>
+              <div class="drive-link-row">
+                <input type="url" id="setFolderDrive" class="form-control" required value="https://drive.google.com/drive/folders/1vDgNQXMj9WatFSJPlbDDmkybk-euko7u?usp=sharing" />
+                <a id="openDriveFolderLink" href="https://drive.google.com/drive/folders/1vDgNQXMj9WatFSJPlbDDmkybk-euko7u?usp=sharing" target="_blank" class="btn btn-ghost btn-sm">Buka Folder</a>
+              </div>
+              <div class="small text-muted">Semua foto yang diambil lewat kamera HP / galeri di web otomatis tersimpan ke folder Google Drive ini.</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="saveSettingsBtn"Simpan Pengaturan</button>
           </form>
         </div>
       </section>
@@ -344,9 +354,15 @@
           </div>
 
           <div class="form-group">
-            <label>Link Foto Google Drive</label>
-            <input type="text" id="carPhotoUrl" class="form-control" placeholder="Tempel link share Google Drive (https://drive.google.com/file/d/.../view)" />
-            <div class="small text-muted">Pastikan izin file di Google Drive diset ke <strong>"Siapa saja yang memiliki link"</strong>.</div>
+            <label>Foto Mobil (Otomatis Upload ke Google Drive)</label>
+            <div class="upload-actions-grid">
+              <button type="button" class="btn btn-primary btn-sm" id="carTakePhotoBtn">📷 Ambil Foto Kamera HP</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="carPickGalleryBtn">🖼️ Pilih dari Galeri</button>
+            </div>
+            <input type="file" id="carCameraInput" accept="image/*" capture="environment" class="hidden" />
+            <input type="file" id="carGalleryInput" accept="image/*" class="hidden" />
+            <div id="carUploadStatus" class="upload-status text-muted"></div>
+            <input type="text" id="carPhotoUrl" class="form-control" style="margin-top:8px;" placeholder="Link Google Drive terisi otomatis setelah upload (atau tempel manual)" />
             <div id="carPhotoPreviewWrap"></div>
           </div>
 
@@ -518,6 +534,19 @@
                 <option value="Servis">Servis / Perawatan</option>
               </select>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>Foto Kondisi Pengembalian (Masuk Google Drive)</label>
+            <div class="upload-actions-grid">
+              <button type="button" class="btn btn-primary btn-sm" id="ciTakePhotoBtn">📷 Foto Kamera HP</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="ciPickGalleryBtn">🖼️ Pilih Galeri</button>
+            </div>
+            <input type="file" id="ciCameraInput" accept="image/*" capture="environment" class="hidden" />
+            <input type="file" id="ciGalleryInput" accept="image/*" class="hidden" />
+            <input type="hidden" id="ciPhotoUrl" />
+            <div id="ciUploadStatus" class="upload-status text-muted"></div>
+            <div id="ciPhotoPreviewWrap"></div>
           </div>
 
           <div class="form-group">

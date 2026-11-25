@@ -379,6 +379,39 @@
     );
   }
 
+
+  function compressImageForUpload(file, maxWidth, quality) {
+    return new Promise((resolve, reject) => {
+      const mw = maxWidth || 1280;
+      const q = quality || 0.8;
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Gagal membaca file foto."));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("File bukan gambar yang valid."));
+        img.onload = () => {
+          let w = img.width;
+          let h = img.height;
+          if (w > mw) {
+            h = Math.round((h * mw) / w);
+            w = mw;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL("image/jpeg", q);
+          const base64 = dataUrl.split(",")[1] || "";
+          const cleanName = String(file.name || "foto.jpg").replace(/\.[^.]+$/, "") + ".jpg";
+          resolve({ base64: base64, mimeType: "image/jpeg", fileName: cleanName, previewDataUrl: dataUrl });
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   // ============================================================================
   // FORMATTERS & BUSINESS LOGIC
   // ============================================================================
@@ -546,6 +579,7 @@
     extractDriveFileId: extractDriveFileId,
     resolveImageUrls: resolveImageUrls,
     renderCarImage: renderCarImage,
+    compressImageForUpload: compressImageForUpload,
     CAR_PLACEHOLDER_SVG: CAR_PLACEHOLDER_SVG,
     escapeHtml: escapeHtml,
     formatRupiah: formatRupiah,

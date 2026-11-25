@@ -613,11 +613,180 @@ tr:hover td {
   background: transparent;
 }
 
-@media (max-width: 720px) {
-  .filter-bar, .form-grid-2 {
+
+/* Upload Camera & Drive Helpers */
+.upload-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.drive-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.upload-status {
+  font-size: 0.84rem;
+  margin-top: 6px;
+}
+
+.tabs {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+@media (max-width: 768px) {
+  .navbar-inner {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+  .brand {
+    font-size: 1rem;
+    gap: 9px;
+  }
+  .brand-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 0.85rem;
+  }
+  .container {
+    padding: 14px 12px 48px;
+  }
+  .hero {
+    padding: 18px 16px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+  }
+  .filter-bar, .form-grid-2, .upload-actions-grid {
     grid-template-columns: 1fr;
   }
+  .drive-link-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .kpi-card {
+    padding: 12px 13px;
+  }
+  .kpi-value {
+    font-size: 1.2rem;
+  }
+  .panel-card {
+    padding: 14px 12px;
+    border-radius: 12px;
+  }
+  /* Mencegah auto-zoom di HP iOS/Android saat tap input */
+  input.form-control, select.form-control, textarea.form-control {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .btn {
+    min-height: 42px;
+  }
+  .btn-sm {
+    min-height: 36px;
+    padding: 7px 11px;
+  }
+  .tab-btn {
+    padding: 9px 13px;
+    font-size: 0.88rem;
+  }
+
+  /* Modal ramah layar HP (Bottom-sheet style) */
+  .modal-backdrop {
+    padding: 8px;
+    align-items: flex-end;
+  }
+  .modal {
+    max-height: 92dvh;
+    border-radius: 16px 16px 12px 12px;
+  }
+  .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--card);
+    padding: 14px 16px;
+  }
+  .modal-body {
+    padding: 14px 16px;
+  }
+  .modal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--card);
+    padding: 12px 16px;
+  }
+  .modal-footer .btn {
+    flex: 1;
+  }
+
+  /* Responsive Card Table di HP (tanpa geser kanan-kiri) */
+  .responsive-table thead {
+    display: none;
+  }
+  .responsive-table,
+  .responsive-table tbody,
+  .responsive-table tr,
+  .responsive-table td {
+    display: block;
+    width: 100%;
+  }
+  .responsive-table tr {
+    background: #0f172a;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+  .responsive-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px dashed rgba(148, 163, 184, 0.16);
+    text-align: right;
+  }
+  .responsive-table td:last-child {
+    border-bottom: none;
+    padding-top: 10px;
+    justify-content: flex-start;
+  }
+  .responsive-table td::before {
+    content: attr(data-label);
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: left;
+    flex-shrink: 0;
+  }
+  .responsive-table td[data-label="Foto"] {
+    justify-content: center;
+  }
+  .responsive-table td[data-label="Foto"]::before {
+    display: none;
+  }
+  .due-item {
+    padding: 12px;
+  }
+  .due-item > div:last-child {
+    width: 100%;
+  }
+  .due-item > div:last-child .btn {
+    flex: 1;
+  }
 }
+
 
 @media print {
   body { background: #fff !important; color: #000 !important; }
