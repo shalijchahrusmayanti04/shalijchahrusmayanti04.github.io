@@ -19,8 +19,11 @@
   let MONITOR_TICK_TIMER = null;
   let IS_UPLOADING_PHOTO = false;
   let CAR_PHOTO_UPLOAD_ERROR = false;
+  const PROOF_SUBFOLDER_NAME = "bukti transaksi sewa";
   let CAR_PHOTO_ITEMS = [];
   let PENDING_CI_PHOTO = null;
+  let NEW_TRX_PROOF_ITEMS = [];
+  let EDIT_TRX_PROOF_ITEMS = [];
 
   const el = id => document.getElementById(id);
 
@@ -146,6 +149,16 @@
     el("ciPickGalleryBtn").addEventListener("click", () => el("ciGalleryInput").click());
     el("ciCameraInput").addEventListener("change", e => handlePhotoUpload(e.target.files[0], "ci"));
     el("ciGalleryInput").addEventListener("change", e => handlePhotoUpload(e.target.files[0], "ci"));
+
+    el("trxTakePhotoBtn").addEventListener("click", () => el("trxProofCameraInput").click());
+    el("trxPickFileBtn").addEventListener("click", () => el("trxProofFileInput").click());
+    el("trxProofCameraInput").addEventListener("change", e => handleProofFileSelect(e.target.files, "new"));
+    el("trxProofFileInput").addEventListener("change", e => handleProofFileSelect(e.target.files, "new"));
+
+    el("editTrxTakePhotoBtn").addEventListener("click", () => el("editTrxProofCameraInput").click());
+    el("editTrxPickFileBtn").addEventListener("click", () => el("editTrxProofFileInput").click());
+    el("editTrxProofCameraInput").addEventListener("change", e => handleProofFileSelect(e.target.files, "edit"));
+    el("editTrxProofFileInput").addEventListener("change", e => handleProofFileSelect(e.target.files, "edit"));
 
     el("setFolderDrive").addEventListener("input", () => {
       el("openDriveFolderLink").href = el("setFolderDrive").value.trim() || DEFAULT_DRIVE_FOLDER;
@@ -916,6 +929,13 @@
               ${(Number(t.dp_bayar) > 0 || t.metode_bayar_dp) ? `<div class="small text-muted">DP (${G.escapeHtml(t.metode_bayar_dp || "Tunai")}): ${G.formatRupiah(t.dp_bayar)}</div>` : ""}
               ${t.metode_bayar ? `<div class="small text-muted">Cara Bayar: ${G.escapeHtml(t.metode_bayar)}</div>` : ""}
               <div class="small text-muted">Sisa: ${G.formatRupiah(t.sisa_bayar)}</div>
+              ${(() => {
+                const proofs = G.parseCarImages(t.bukti_transaksi_url);
+                if (!proofs.length) return "";
+                return '<div class="trx-proof-links">' + proofs.map((u, idx) =>
+                  '<a class="trx-proof-link" href="' + G.escapeHtml(u) + '" target="_blank" rel="noopener">Bukti ' + (idx + 1) + '</a>'
+                ).join("") + '</div>';
+              })()}
             </div>
           </td>
           <td data-label="Status">
@@ -967,6 +987,15 @@
     el("trxPayMethod").value = "Tunai";
     el("trxScheduleStatus").value = pf.status_sewa === "Terjadwal" ? "Terjadwal" : "Berjalan";
 
+    NEW_TRX_PROOF_ITEMS = [];
+    el("trxProofCameraInput").value = "";
+    el("trxProofFileInput").value = "";
+    el("trxProofUrl").value = "";
+    el("trxProofStatus").className = "upload-status text-muted";
+    el("trxProofStatus").textContent = "";
+    el("trxProofPreviewWrap").innerHTML = "";
+    el("saveNewTrxBtn").textContent = "Simpan Transaksi";
+
     updateNewTrxSummary();
     el("newTrxModal").classList.add("open");
   };
@@ -1001,12 +1030,189 @@
     el("trxSumTotal").textContent = G.formatRupiah(base + deliv + drv);
   }
 
+  function readRawFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      if (file.size > 8 * 1024 * 1024) {
+        reject(new Error("Ukuran file maksimal 8 MB."));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Gagal membaca file."));
+      reader.onload = () => {
+        const res = String(reader.result || "");
+        const base64 = res.split(",")[1] || "";
+        resolve({
+          base64: base64,
+          mimeType: file.type || "application/octet-stream",
+          fileName: file.name || ("bukti-" + Date.now())
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function getProofList(target) {
+    return target === "edit" ? EDIT_TRX_PROOF_ITEMS : NEW_TRX_PROOF_ITEMS;
+  }
+
+  function renderProofItems(target) {
+    const wrap = el(target === "edit" ? "editTrxProofPreviewWrap" : "trxProofPreviewWrap");
+    const items = getProofList(target);
+    if (!items.length) {
+      wrap.innerHTML = "";
+      return;
+    }
+    wrap.innerHTML =
+      '<div class="multi-photo-grid">' +
+      items.map((item, idx) => {
+        let innerHtml = "";
+        if (item.kind === "pending") {
+          if (item.isImage && item.previewDataUrl) {
+            innerHtml = '<img src="' + item.previewDataUrl + '" alt="Bukti ' + (idx + 1) + '">';
+          } else {
+            innerHtml =
+              '<div class="proof-file-tile">' +
+                '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+                '<span class="proof-file-name">' + G.escapeHtml(item.fileName || "File") + '</span>' +
+              '</div>';
+          }
+        } else {
+          innerHtml =
+            '<a href="' + G.escapeHtml(item.url) + '" target="_blank" rel="noopener" style="display:block;width:100%;height:100%;">' +
+              G.renderCarImage(item.url, "Bukti " + (idx + 1), "") +
+            '</a>';
+        }
+        const tag = item.kind === "pending" ? "Baru" : "Tersimpan";
+        return `
+          <div class="multi-photo-item">
+            ${innerHtml}
+            <span class="multi-photo-tag">${tag}</span>
+            <button type="button" class="multi-photo-remove" title="Hapus bukti ini" onclick="window.__removeProofItem('${target}', ${idx})">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        `;
+      }).join("") +
+      "</div>";
+  }
+
+  window.__removeProofItem = function (target, idx) {
+    const items = getProofList(target);
+    items.splice(idx, 1);
+    el(target === "edit" ? "editTrxProofUrl" : "trxProofUrl").value = G.serializeCarImages(
+      items.filter(x => x.kind === "url").map(x => x.url)
+    );
+    const statusEl = el(target === "edit" ? "editTrxProofStatus" : "trxProofStatus");
+    statusEl.className = "upload-status text-muted";
+    statusEl.textContent = items.length ? items.length + " bukti transaksi terlampir." : "";
+    renderProofItems(target);
+  };
+
+  async function handleProofFileSelect(fileList, target) {
+    if (!fileList || !fileList.length) return;
+    const files = Array.from(fileList);
+    const items = getProofList(target);
+    const isEdit = target === "edit";
+    const statusEl = el(isEdit ? "editTrxProofStatus" : "trxProofStatus");
+    const submitBtn = el(isEdit ? "saveEditTrxBtn" : "saveNewTrxBtn");
+    submitBtn.disabled = true;
+
+    try {
+      G.uiLoading("Menyiapkan file bukti transaksi...", "Memproses File");
+      statusEl.className = "upload-status text-warning";
+      statusEl.textContent = "Memproses file bukti transaksi...";
+
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const isImg = /^image//i.test(f.type || "") || /.(jpg|jpeg|png|webp)$/i.test(f.name || "");
+        if (isImg) {
+          try {
+            const comp = await G.compressImageForUpload(f, 1280, 0.8);
+            items.push({
+              kind: "pending",
+              isImage: true,
+              base64: comp.base64,
+              mimeType: comp.mimeType,
+              fileName: comp.fileName,
+              previewDataUrl: comp.previewDataUrl
+            });
+            continue;
+          } catch (_) {}
+        }
+        const raw = await readRawFileAsBase64(f);
+        items.push({
+          kind: "pending",
+          isImage: false,
+          base64: raw.base64,
+          mimeType: raw.mimeType,
+          fileName: raw.fileName,
+          previewDataUrl: ""
+        });
+      }
+
+      renderProofItems(target);
+      statusEl.className = "upload-status text-success";
+      statusEl.textContent = items.length + " file siap (akan diupload ke folder '" + PROOF_SUBFOLDER_NAME + "' saat Simpan Transaksi).";
+      G.uiClose();
+    } catch (err) {
+      G.uiClose();
+      statusEl.className = "upload-status text-danger";
+      statusEl.textContent = "Gagal memproses file: " + err.message;
+      await G.uiAlert("File Tidak Valid", err.message, "error");
+    } finally {
+      submitBtn.disabled = false;
+      el(isEdit ? "editTrxProofCameraInput" : "trxProofCameraInput").value = "";
+      el(isEdit ? "editTrxProofFileInput" : "trxProofFileInput").value = "";
+    }
+  }
+
+  async function uploadPendingProofItems(items, prefixLabel, statusEl) {
+    const pendingCount = items.filter(x => x.kind === "pending").length;
+    let uploadedIdx = 0;
+    const cleanPrefix = String(prefixLabel || "bukti").replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 32) || "bukti";
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind !== "pending") continue;
+      uploadedIdx++;
+      G.uiLoading(
+        "Mengunggah bukti transaksi " + uploadedIdx + " dari " + pendingCount + " ke folder '" + PROOF_SUBFOLDER_NAME + "'...",
+        "Mengunggah Bukti Transaksi"
+      );
+      const safeOriginal = String(item.fileName || "bukti.jpg").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const upRes = await adminApi("upload_drive_image", {
+        data: {
+          base64: item.base64,
+          mimeType: item.mimeType,
+          fileName: cleanPrefix + "-" + Date.now() + "-" + uploadedIdx + "-" + safeOriginal,
+          subfolder_name: PROOF_SUBFOLDER_NAME
+        }
+      });
+      if (!upRes.ok) {
+        throw new Error("UPLOAD_FAILED:" + (upRes.error || "Gagal mengunggah bukti transaksi."));
+      }
+      items[i] = { kind: "url", url: upRes.url };
+    }
+
+    const serialized = G.serializeCarImages(items.map(x => x.url));
+    if (pendingCount > 0 && statusEl) {
+      statusEl.className = "upload-status text-success";
+      statusEl.textContent = "Bukti transaksi berhasil diupload ke folder '" + PROOF_SUBFOLDER_NAME + "'.";
+    }
+    return serialized;
+  }
+
   async function handleCreateTransaction(e) {
     e.preventDefault();
     const btn = el("saveNewTrxBtn");
     btn.disabled = true;
-    G.uiLoading("Menyimpan transaksi sewa baru...", "Menyimpan Transaksi");
+    btn.textContent = "Menyimpan...";
     try {
+      const custSlug = el("trxName").value.trim() || "trx";
+      const finalProofUrl = await uploadPendingProofItems(NEW_TRX_PROOF_ITEMS, "bukti-" + custSlug, el("trxProofStatus"));
+      el("trxProofUrl").value = finalProofUrl;
+
+      G.uiLoading("Menyimpan transaksi sewa baru...", "Menyimpan Transaksi");
       const res = await adminApi("create_transaction", {
         data: {
           id_mobil: el("trxCarId").value,
@@ -1026,22 +1232,34 @@
           dp_bayar: G.parseRupiah(el("trxDp").value),
           metode_bayar_dp: el("trxDpMethod").value,
           metode_bayar: el("trxPayMethod").value,
-          status_sewa: el("trxScheduleStatus").value
+          status_sewa: el("trxScheduleStatus").value,
+          bukti_transaksi_url: finalProofUrl
         }
       });
       if (!res.ok) throw new Error(res.error);
       window.__closeModal("newTrxModal");
+      NEW_TRX_PROOF_ITEMS = [];
       el("newTrxForm").reset();
       G.uiLoading("Memperbarui daftar transaksi...", "Sinkronisasi Data");
       await loadDashboard(true);
       G.uiClose();
-      await G.uiAlert("Transaksi Dimulai", "Transaksi sewa baru berhasil dibuat.", "success");
+      await G.uiAlert("Transaksi Tersimpan", "Transaksi sewa baru & bukti transaksi berhasil disimpan.", "success");
     } catch (err) {
       G.uiClose();
-      await G.uiAlert("Gagal Membuat Transaksi", err.message, "error");
+      const rawMsg = String(err && err.message ? err.message : err);
+      const isUploadErr = rawMsg.indexOf("UPLOAD_FAILED:") === 0;
+      const cleanMsg = rawMsg.replace(/^UPLOAD_FAILED:/, "");
+      if (isUploadErr) {
+        renderProofItems("new");
+        el("trxProofStatus").className = "upload-status text-danger";
+        el("trxProofStatus").textContent = "Gagal upload bukti: " + cleanMsg;
+        await G.uiAlert("Upload Bukti Gagal", cleanMsg + "\n\nTransaksi belum disimpan karena upload bukti gagal.", "error");
+      } else {
+        await G.uiAlert("Gagal Membuat Transaksi", cleanMsg, "error");
+      }
     } finally {
       btn.disabled = false;
-      btn.textContent = "Mulai Sewa";
+      btn.textContent = "Simpan Transaksi";
     }
   }
 
@@ -1076,6 +1294,15 @@
     el("editTrxDpMethod").value = trx.metode_bayar_dp || "Tunai";
     el("editTrxPayMethod").value = trx.metode_bayar || "Tunai";
     el("editTrxScheduleStatus").value = trx.status_sewa || "Berjalan";
+
+    EDIT_TRX_PROOF_ITEMS = G.parseCarImages(trx.bukti_transaksi_url).map(u => ({ kind: "url", url: u }));
+    el("editTrxProofCameraInput").value = "";
+    el("editTrxProofFileInput").value = "";
+    el("editTrxProofUrl").value = trx.bukti_transaksi_url || "";
+    el("editTrxProofStatus").className = "upload-status text-muted";
+    el("editTrxProofStatus").textContent = EDIT_TRX_PROOF_ITEMS.length ? EDIT_TRX_PROOF_ITEMS.length + " bukti transaksi tersimpan." : "";
+    renderProofItems("edit");
+
     updateEditTrxSummary();
     el("editTrxModal").classList.add("open");
   };
@@ -1117,8 +1344,11 @@
     e.preventDefault();
     const btn = el("saveEditTrxBtn");
     btn.disabled = true;
-    G.uiLoading("Menyimpan perubahan transaksi sewa...", "Memperbarui Transaksi");
     try {
+      const finalProofUrl = await uploadPendingProofItems(EDIT_TRX_PROOF_ITEMS, el("editTrxId").value || "bukti", el("editTrxProofStatus"));
+      el("editTrxProofUrl").value = finalProofUrl;
+
+      G.uiLoading("Menyimpan perubahan transaksi sewa...", "Memperbarui Transaksi");
       const res = await adminApi("update_transaction", {
         data: {
           id_transaksi: el("editTrxId").value,
@@ -1139,18 +1369,30 @@
           dp_bayar: G.parseRupiah(el("editTrxDp").value),
           metode_bayar_dp: el("editTrxDpMethod").value,
           metode_bayar: el("editTrxPayMethod").value,
-          status_sewa: el("editTrxScheduleStatus").value
+          status_sewa: el("editTrxScheduleStatus").value,
+          bukti_transaksi_url: finalProofUrl
         }
       });
       if (!res.ok) throw new Error(res.error);
       window.__closeModal("editTrxModal");
+      EDIT_TRX_PROOF_ITEMS = [];
       G.uiLoading("Memperbarui monitor & transaksi...", "Sinkronisasi Data");
       await loadDashboard(true);
       G.uiClose();
       await G.uiAlert("Transaksi Diperbarui", "Data transaksi sewa berhasil diperbarui.", "success");
     } catch (err) {
       G.uiClose();
-      await G.uiAlert("Gagal Memperbarui", err.message, "error");
+      const rawMsg = String(err && err.message ? err.message : err);
+      const isUploadErr = rawMsg.indexOf("UPLOAD_FAILED:") === 0;
+      const cleanMsg = rawMsg.replace(/^UPLOAD_FAILED:/, "");
+      if (isUploadErr) {
+        renderProofItems("edit");
+        el("editTrxProofStatus").className = "upload-status text-danger";
+        el("editTrxProofStatus").textContent = "Gagal upload bukti: " + cleanMsg;
+        await G.uiAlert("Upload Bukti Gagal", cleanMsg, "error");
+      } else {
+        await G.uiAlert("Gagal Memperbarui", cleanMsg, "error");
+      }
     } finally {
       btn.disabled = false;
     }
@@ -2077,6 +2319,13 @@
         </tbody>
       </table>
       <div style="font-size:0.8rem;color:#475569;">Catatan: ${G.escapeHtml(t.catatan_kondisi || "-")}</div>
+      ${(() => {
+        const proofs = G.parseCarImages(t.bukti_transaksi_url);
+        if (!proofs.length) return "";
+        return '<div style="font-size:0.78rem;color:#475569;margin-top:6px;">Bukti Transaksi: ' +
+          proofs.map((u, idx) => '<a href="' + G.escapeHtml(u) + '" target="_blank" rel="noopener">Lampiran ' + (idx + 1) + '</a>').join(" • ") +
+          '</div>';
+      })()}
     `;
     el("invoiceModal").classList.add("open");
   };
