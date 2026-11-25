@@ -50,8 +50,15 @@
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
-  -ms-touch-action: pan-x pan-y;
-  touch-action: pan-x pan-y;
+  -ms-touch-action: pan-y;
+  touch-action: pan-y;
+}
+
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
 }
 
 html {
@@ -141,7 +148,7 @@ button, input, select, textarea {
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   flex-shrink: 0;
 }
 .btn svg {
@@ -151,9 +158,11 @@ button, input, select, textarea {
 }
 
 .container {
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 16px 14px 104px;
+  overflow-x: clip;
 }
 
 /* Neumorphic Buttons */
@@ -413,7 +422,7 @@ textarea.form-control {
 /* Cards & Grids */
 .car-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
   gap: 16px;
 }
 
@@ -493,7 +502,8 @@ textarea.form-control {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .price-main {
@@ -596,6 +606,15 @@ th {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.due-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
 
 .due-item.overdue {
@@ -622,7 +641,7 @@ th {
   display: flex;
   align-items: stretch;
   justify-content: space-between;
-  gap: 4px;
+  gap: 6px;
 }
 
 [data-theme="dark"] .dock-nav {
@@ -748,8 +767,9 @@ th {
   padding: 12px 18px;
   border-top: 1px solid var(--divider);
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
 }
 
 .summary-box {
@@ -840,13 +860,20 @@ th {
 .upload-actions-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 8px;
 }
 
 .drive-link-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
   align-items: center;
 }
 
@@ -871,6 +898,15 @@ th {
   padding: 18px;
   border-radius: 12px;
   font-size: 0.82rem;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.invoice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  font-size: 0.88rem;
+  margin-bottom: 16px;
 }
 .invoice-paper table th,
 .invoice-paper table td {
@@ -892,7 +928,7 @@ th {
 .td-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 8px;
   width: 100%;
 }
 
@@ -917,7 +953,7 @@ html.is-ios textarea.form-control {
   .brand { font-size: 0.88rem; gap: 8px; }
   .brand-icon { width: 34px; height: 34px; font-size: 0.78rem; border-radius: 10px; }
   .brand-sub { display: none; }
-  .nav-actions { gap: 6px; }
+  .nav-actions { gap: 8px; }
   .nav-actions .btn-sm {
     padding: 0;
     width: 34px;
@@ -940,7 +976,7 @@ html.is-ios textarea.form-control {
   .drive-link-row { flex-direction: column; align-items: stretch; }
 
   .kpi-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 9px;
   }
   .kpi-card { padding: 11px 12px; border-radius: 14px; }
@@ -1071,7 +1107,7 @@ html.is-ios textarea.form-control {
   .td-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
   }
   .td-actions .btn {
@@ -1084,8 +1120,40 @@ html.is-ios textarea.form-control {
     display: none;
   }
 
-  .due-item > div:last-child { width: 100%; display: flex; gap: 8px; }
-  .due-item > div:last-child .btn { flex: 1; }
+  .due-item > div:last-child,
+  .due-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .due-item > div:last-child .btn,
+  .due-actions .btn {
+    flex: 1 1 auto;
+  }
+  .header-actions {
+    width: 100%;
+    gap: 10px;
+  }
+  .header-actions > .form-control,
+  .header-actions > .ss-wrap {
+    flex: 1 1 140px;
+    min-width: 0;
+    width: auto !important;
+  }
+  .header-actions > .btn {
+    flex: 1 1 auto;
+  }
+  #custSearch {
+    max-width: 100% !important;
+    width: 100%;
+  }
+  .responsive-table td {
+    overflow-wrap: anywhere;
+  }
+  .invoice-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media print {
@@ -1099,7 +1167,7 @@ html.is-ios textarea.form-control {
 /* Subtab Segmented Bar (Mobil | Merk | Type) */
 .subtab-bar {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   padding: 5px;
   margin-bottom: 14px;
   background: var(--surface);
@@ -1211,7 +1279,7 @@ html.is-ios textarea.form-control {
 .admin-car-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
   padding-top: 10px;
   border-top: 1px solid var(--divider);
@@ -1490,4 +1558,24 @@ html.is-ios .ss-search-input {
     flex: 1;
     min-width: 140px;
   }
+}
+
+
+/* Global overflow safety for grid/flex children */
+.panel-card,
+.hero,
+.car-card,
+.kpi-card,
+.modal,
+.filter-bar > *,
+.form-grid-2 > *,
+.upload-actions-grid > *,
+.kpi-grid > *,
+.car-grid > *,
+.due-item > *,
+.panel-header > *,
+.header-actions > *,
+.drive-link-row > * {
+  min-width: 0;
+  max-width: 100%;
 }

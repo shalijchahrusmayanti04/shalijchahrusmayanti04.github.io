@@ -418,7 +418,7 @@
             ${dendaText}
             ${remindedText}
           </div>
-          <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <div class="due-actions">
             <button type="button" class="btn btn-ghost btn-sm" onclick="window.__openEditTrxModal('${G.escapeHtml(trx.id_transaksi)}')">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               Edit
@@ -1007,7 +1007,7 @@
           <td data-label="Nama Merk"><strong>${G.escapeHtml(b.nama_merk)}</strong></td>
           <td data-label="Jumlah Unit"><span class="badge badge-info">${count} Mobil</span></td>
           <td data-label="Aksi">
-            <div style="display:flex;gap:6px;">
+            <div class="td-actions">
               <button type="button" class="btn btn-ghost btn-sm" onclick="window.__openBrandModal('${G.escapeHtml(b.id_merk)}')">Edit</button>
               <button type="button" class="btn btn-danger btn-sm" onclick="window.__deleteBrand('${G.escapeHtml(b.id_merk)}')">Hapus</button>
             </div>
@@ -1085,7 +1085,7 @@
           <td data-label="Nama Type"><strong>${G.escapeHtml(tp.nama_type)}</strong></td>
           <td data-label="Jumlah Unit"><span class="badge badge-info">${count} Mobil</span></td>
           <td data-label="Aksi">
-            <div style="display:flex;gap:6px;">
+            <div class="td-actions">
               <button type="button" class="btn btn-ghost btn-sm" onclick="window.__openTypeModal('${G.escapeHtml(tp.id_type)}')">Edit</button>
               <button type="button" class="btn btn-danger btn-sm" onclick="window.__deleteType('${G.escapeHtml(tp.id_type)}')">Hapus</button>
             </div>
@@ -1460,7 +1460,7 @@
           <td data-label="Total Sewa"><strong>${G.escapeHtml(c.total_sewa)}x</strong></td>
           <td data-label="Status"><span class="badge ${tagCls}">${G.escapeHtml(c.status_tag || "Normal")}</span></td>
           <td data-label="Catatan" class="small text-muted">${G.escapeHtml(c.catatan || "-")}</td>
-          <td data-label="Aksi"><button class="btn btn-ghost btn-sm" onclick="window.__openCustModal('${G.escapeHtml(c.id_pelanggan)}')">Edit</button></td>
+          <td data-label="Aksi"><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="window.__openCustModal('${G.escapeHtml(c.id_pelanggan)}')">Edit</button></div></td>
         </tr>
       `;
     }).join("");
@@ -1630,7 +1630,7 @@
     const rental = DATA.settings.nama_rental || "Restu Bumi";
 
     el("invoicePaper").innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:16px;">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:10px;border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:16px;">
         <div>
           <h2 style="margin:0;">${G.escapeHtml(rental)}</h2>
           <div style="font-size:0.85rem;color:#475569;">${G.escapeHtml(DATA.settings.alamat_garasi || "")}</div>
@@ -1643,7 +1643,7 @@
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.88rem;margin-bottom:16px;">
+      <div class="invoice-grid">
         <div>
           <strong>Penyewa:</strong><br>
           ${G.escapeHtml(t.nama_pelanggan)}<br>
