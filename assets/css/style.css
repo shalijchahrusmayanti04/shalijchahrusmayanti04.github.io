@@ -955,7 +955,9 @@ html.is-ios textarea.form-control {
 
   /* Tabel responsif jadi kartu di HP */
   .table-wrap {
-    overflow-x: visible;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
   .responsive-table thead { display: none; }
   .responsive-table,
@@ -964,6 +966,7 @@ html.is-ios textarea.form-control {
   .responsive-table td {
     display: block;
     width: 100%;
+    max-width: 100%;
   }
   .responsive-table tr {
     background: var(--surface);
@@ -1010,7 +1013,8 @@ html.is-ios textarea.form-control {
     gap: 2px;
     flex: 1;
     min-width: 0;
-    word-break: break-word;
+    word-break: normal;
+    overflow-wrap: break-word;
   }
   .td-badges {
     display: flex;
