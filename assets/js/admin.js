@@ -3,6 +3,7 @@
 
   const G = window.RentalGuard;
   const TOKEN_KEY = "rm_admin_token_v1";
+  const ACTIVE_TAB_KEY = "rb_admin_active_tab_v1";
   const DEFAULT_DRIVE_FOLDER = "https://drive.google.com/drive/folders/1vDgNQXMj9WatFSJPlbDDmkybk-euko7u?usp=sharing";
 
   let CONFIG = null;
@@ -33,19 +34,27 @@
     }
   }
 
+  function switchTab(tabId, shouldScroll) {
+    const targetBtn =
+      document.querySelector('.dock-item[data-tab="' + tabId + '"]') ||
+      document.querySelector('.dock-item[data-tab="tabMonitor"]');
+    const resolvedTab = targetBtn ? targetBtn.dataset.tab : "tabMonitor";
+    document.querySelectorAll(".dock-item[data-tab]").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.add("hidden"));
+    if (targetBtn) targetBtn.classList.add("active");
+    const panel = el(resolvedTab);
+    if (panel) panel.classList.remove("hidden");
+    try { sessionStorage.setItem(ACTIVE_TAB_KEY, resolvedTab); } catch (_) {}
+    if (shouldScroll) window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function bindGlobalEvents() {
     el("loginForm").addEventListener("submit", handleLogin);
     el("logoutBtn").addEventListener("click", logout);
     el("refreshDataBtn").addEventListener("click", () => loadDashboard(false));
 
     document.querySelectorAll(".dock-item[data-tab]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(".dock-item[data-tab]").forEach(b => b.classList.remove("active"));
-        document.querySelectorAll(".tab-panel").forEach(p => p.classList.add("hidden"));
-        btn.classList.add("active");
-        el(btn.dataset.tab).classList.remove("hidden");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      });
+      btn.addEventListener("click", () => switchTab(btn.dataset.tab, true));
     });
 
     el("trxStatusFilter").addEventListener("change", renderTransactions);
@@ -142,6 +151,7 @@
   function logout() {
     TOKEN = "";
     sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(ACTIVE_TAB_KEY);
     if (MONITOR_TIMER) clearInterval(MONITOR_TIMER);
     el("adminContent").classList.add("hidden");
     el("logoutBtn").classList.add("hidden");
@@ -174,6 +184,9 @@
 
       G.uiClose();
       renderAll();
+      let savedTab = "tabMonitor";
+      try { savedTab = sessionStorage.getItem(ACTIVE_TAB_KEY) || "tabMonitor"; } catch (_) {}
+      switchTab(savedTab, false);
 
       if (MONITOR_TIMER) clearInterval(MONITOR_TIMER);
       MONITOR_TIMER = setInterval(() => {
