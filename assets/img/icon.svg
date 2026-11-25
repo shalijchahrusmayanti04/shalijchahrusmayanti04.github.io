@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="80" y1="90" x2="432" y2="410" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+  <rect x="24" y="24" width="464" height="464" rx="92" stroke="#38bdf8" stroke-opacity="0.22" stroke-width="6"/>
+  <!-- Stylized Car Silhouette -->
+  <path d="M108 272L144 176C154 152 176 138 202 138H310C336 138 358 152 368 176L404 272H108Z" fill="url(#accentGrad)" fill-opacity="0.22" stroke="url(#accentGrad)" stroke-width="18" stroke-linejoin="round"/>
+  <rect x="82" y="262" width="348" height="92" rx="34" fill="#1e293b" stroke="url(#accentGrad)" stroke-width="18"/>
+  <!-- Headlights -->
+  <circle cx="144" cy="308" r="18" fill="#38bdf8"/>
+  <circle cx="368" cy="308" r="18" fill="#38bdf8"/>
+  <!-- RB Emblem -->
+  <text x="256" y="324" text-anchor="middle" fill="#f8fafc" font-family="Segoe UI, Arial, sans-serif" font-size="62" font-weight="900" letter-spacing="4">RB</text>
+  <!-- Wheels -->
+  <rect x="114" y="354" width="64" height="36" rx="14" fill="#0284c7"/>
+  <rect x="334" y="354" width="64" height="36" rx="14" fill="#0284c7"/>
+</svg>

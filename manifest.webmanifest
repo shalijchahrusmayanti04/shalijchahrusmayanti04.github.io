@@ -1,0 +1,20 @@
+{
+  "name": "Restu Bumi - Rental Mobil",
+  "short_name": "Restu Bumi",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#191f2a",
+  "theme_color": "#191f2a",
+  "icons": [
+    {
+      "src": "assets/img/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "assets/img/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
