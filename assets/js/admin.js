@@ -1124,7 +1124,9 @@
 
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
-        const isImg = /^image//i.test(f.type || "") || /.(jpg|jpeg|png|webp)$/i.test(f.name || "");
+        const mimeStr = String(f.type || "").toLowerCase();
+        const nameStr = String(f.name || "").toLowerCase();
+        const isImg = mimeStr.indexOf("image/") === 0 || ["jpg","jpeg","png","webp","gif","bmp"].some(ext => nameStr.endsWith("." + ext));
         if (isImg) {
           try {
             const comp = await G.compressImageForUpload(f, 1280, 0.8);

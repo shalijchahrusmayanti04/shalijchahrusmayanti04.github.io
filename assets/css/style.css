@@ -1799,3 +1799,58 @@ html.is-ios .ss-search-input {
   color: var(--primary);
   text-decoration: underline;
 }
+
+/* Modal & Date/Time Width Containment */
+.modal .form-group,
+.modal .form-grid-2 > * {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+.modal-sm .form-grid-2 {
+  grid-template-columns: minmax(0, 1fr);
+}
+input[type="date"].form-control,
+input[type="time"].form-control,
+input[type="datetime-local"].form-control,
+input[type="month"].form-control {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.modal input[type="date"].form-control,
+.modal input[type="time"].form-control,
+.modal input[type="datetime-local"].form-control,
+.modal input[type="month"].form-control {
+  display: flex;
+  align-items: center;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  padding: 0 10px;
+  text-align: left;
+}
+input[type="date"].form-control::-webkit-date-and-time-value,
+input[type="time"].form-control::-webkit-date-and-time-value,
+input[type="datetime-local"].form-control::-webkit-date-and-time-value,
+input[type="month"].form-control::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+input[type="date"].form-control::-webkit-datetime-edit,
+input[type="time"].form-control::-webkit-datetime-edit,
+input[type="datetime-local"].form-control::-webkit-datetime-edit,
+input[type="month"].form-control::-webkit-datetime-edit {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+}
