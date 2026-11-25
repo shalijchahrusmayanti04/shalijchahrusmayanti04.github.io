@@ -738,6 +738,364 @@
         applyTheme(cur === "dark" ? "light" : "dark");
       });
     }
+    initSearchSelects();
+  }
+
+  // ============================================================================
+  // UNIVERSAL SEARCHABLE SELECT (Pengganti Semua Dropdown Native)
+  // ============================================================================
+  const SS_STATE = {
+    initialized: false,
+    activeSelect: null,
+    portal: null,
+    searchInput: null,
+    optionsBox: null,
+    highlightIdx: -1
+  };
+  const SS_CHEVRON_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  const SS_CHECK_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const SS_SEARCH_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+
+  function getOptionText(sel) {
+    if (!sel) return "";
+    const opt = (sel.selectedOptions && sel.selectedOptions[0]) || sel.options[sel.selectedIndex] || sel.options[0];
+    return opt ? (opt.textContent || opt.label || opt.value || "") : "Pilih...";
+  }
+
+  function syncSelectUI(sel) {
+    if (!sel || !sel._ssTrigger) return;
+    const labelEl = sel._ssTrigger.querySelector(".ss-label");
+    if (labelEl) {
+      const txt = getOptionText(sel);
+      labelEl.textContent = txt;
+      labelEl.classList.toggle("is-placeholder", !sel.value && (!sel.options.length || sel.options[0].value === ""));
+    }
+    sel._ssTrigger.disabled = !!sel.disabled;
+    if (sel._ssWrap) {
+      sel._ssWrap.classList.toggle("is-disabled", !!sel.disabled);
+    }
+    if (SS_STATE.activeSelect === sel) {
+      renderPortalOptions();
+    }
+  }
+
+  function ensureSelectPortal() {
+    if (SS_STATE.portal) return SS_STATE.portal;
+    const portal = document.createElement("div");
+    portal.id = "ssPortal";
+    portal.className = "ss-portal hidden";
+    portal.setAttribute("role", "dialog");
+    portal.setAttribute("aria-label", "Pencarian pilihan");
+    portal.innerHTML =
+      '<div class="ss-search-box">' +
+      SS_SEARCH_SVG +
+      '<input type="search" id="ssSearchInput" class="ss-search-input" placeholder="Cari pilihan..." autocomplete="off" />' +
+      '</div>' +
+      '<div id="ssOptionsList" class="ss-options" role="listbox"></div>';
+    document.body.appendChild(portal);
+
+    SS_STATE.portal = portal;
+    SS_STATE.searchInput = portal.querySelector("#ssSearchInput");
+    SS_STATE.optionsBox = portal.querySelector("#ssOptionsList");
+
+    SS_STATE.searchInput.addEventListener("input", () => {
+      SS_STATE.highlightIdx = 0;
+      renderPortalOptions();
+    });
+
+    SS_STATE.searchInput.addEventListener("keydown", e => {
+      const items = Array.from(SS_STATE.optionsBox.querySelectorAll(".ss-option:not(.is-disabled)"));
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (items.length) {
+          SS_STATE.highlightIdx = Math.min(items.length - 1, SS_STATE.highlightIdx + 1);
+          updatePortalHighlight(items);
+        }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (items.length) {
+          SS_STATE.highlightIdx = Math.max(0, SS_STATE.highlightIdx - 1);
+          updatePortalHighlight(items);
+        }
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const target = items[SS_STATE.highlightIdx] || items[0];
+        if (target) choosePortalValue(target.dataset.value);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        const prev = SS_STATE.activeSelect;
+        closeSelectPortal();
+        if (prev && prev._ssTrigger) prev._ssTrigger.focus();
+      }
+    });
+
+    return portal;
+  }
+
+  function updatePortalHighlight(items) {
+    items.forEach((el, idx) => {
+      const active = idx === SS_STATE.highlightIdx;
+      el.classList.toggle("is-highlighted", active);
+      if (active) el.scrollIntoView({ block: "nearest" });
+    });
+  }
+
+  function choosePortalValue(val) {
+    const sel = SS_STATE.activeSelect;
+    if (!sel) return;
+    const changed = sel.value !== val;
+    sel.value = val;
+    syncSelectUI(sel);
+    closeSelectPortal();
+    if (changed) {
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  function renderPortalOptions() {
+    const sel = SS_STATE.activeSelect;
+    const box = SS_STATE.optionsBox;
+    if (!sel || !box) return;
+    const q = (SS_STATE.searchInput ? SS_STATE.searchInput.value : "").trim().toLowerCase();
+    const opts = Array.from(sel.options || []);
+    const filtered = opts.filter(o => {
+      if (!q) return true;
+      return String(o.textContent || o.label || o.value || "").toLowerCase().includes(q);
+    });
+
+    if (!filtered.length) {
+      box.innerHTML = '<div class="ss-empty">Tidak ada pilihan yang cocok</div>';
+      return;
+    }
+
+    const curVal = sel.value;
+    box.innerHTML = filtered.map(o => {
+      const isSelected = o.value === curVal;
+      const isDisabled = !!o.disabled;
+      const cls = "ss-option" + (isSelected ? " is-selected" : "") + (isDisabled ? " is-disabled" : "");
+      return (
+        '<button type="button" class="' + cls + '" role="option" aria-selected="' + (isSelected ? "true" : "false") + '" ' +
+        'data-value="' + escapeHtml(o.value) + '"' + (isDisabled ? " disabled" : "") + '>' +
+        '<span class="ss-option-text">' + escapeHtml(o.textContent || o.label || o.value || "") + '</span>' +
+        (isSelected ? '<span class="ss-option-check">' + SS_CHECK_SVG + '</span>' : '') +
+        '</button>'
+      );
+    }).join("");
+
+    box.querySelectorAll(".ss-option:not(.is-disabled)").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        choosePortalValue(btn.dataset.value);
+      });
+    });
+
+    const selectedBtn = box.querySelector(".ss-option.is-selected");
+    if (selectedBtn && !q) {
+      setTimeout(() => {
+        try { selectedBtn.scrollIntoView({ block: "nearest" }); } catch (_) {}
+      }, 0);
+    }
+  }
+
+  function positionSelectPortal() {
+    const sel = SS_STATE.activeSelect;
+    const portal = SS_STATE.portal;
+    if (!sel || !portal || portal.classList.contains("hidden") || !sel._ssTrigger) return;
+
+    const rect = sel._ssTrigger.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 8;
+
+    const desiredWidth = Math.min(Math.max(rect.width, 210), vw - margin * 2);
+    let left = rect.left;
+    if (left + desiredWidth > vw - margin) {
+      left = Math.max(margin, vw - margin - desiredWidth);
+    }
+    if (left < margin) left = margin;
+
+    portal.style.width = desiredWidth + "px";
+    portal.style.left = left + "px";
+
+    const spaceBelow = vh - rect.bottom - margin;
+    const spaceAbove = rect.top - margin;
+    const openUp = spaceBelow < 210 && spaceAbove > spaceBelow;
+    const maxListH = Math.max(120, Math.min(240, (openUp ? spaceAbove : spaceBelow) - 64));
+    if (SS_STATE.optionsBox) {
+      SS_STATE.optionsBox.style.maxHeight = maxListH + "px";
+    }
+
+    portal.style.top = "0px";
+    const pHeight = portal.offsetHeight || 220;
+    let top = openUp ? (rect.top - pHeight - 6) : (rect.bottom + 6);
+    if (top < margin) top = margin;
+    if (top + pHeight > vh - margin) top = Math.max(margin, vh - margin - pHeight);
+    portal.style.top = top + "px";
+  }
+
+  function closeSelectPortal() {
+    const prev = SS_STATE.activeSelect;
+    SS_STATE.activeSelect = null;
+    SS_STATE.highlightIdx = -1;
+    if (prev && prev._ssWrap) {
+      prev._ssWrap.classList.remove("open");
+    }
+    if (prev && prev._ssTrigger) {
+      prev._ssTrigger.setAttribute("aria-expanded", "false");
+    }
+    if (SS_STATE.portal) {
+      SS_STATE.portal.classList.add("hidden");
+    }
+  }
+
+  function openSelectPortal(sel) {
+    if (!sel || sel.disabled) return;
+    if (SS_STATE.activeSelect === sel) {
+      closeSelectPortal();
+      return;
+    }
+    closeSelectPortal();
+    ensureSelectPortal();
+
+    SS_STATE.activeSelect = sel;
+    SS_STATE.highlightIdx = -1;
+    if (sel._ssWrap) sel._ssWrap.classList.add("open");
+    if (sel._ssTrigger) sel._ssTrigger.setAttribute("aria-expanded", "true");
+    if (SS_STATE.searchInput) SS_STATE.searchInput.value = "";
+
+    renderPortalOptions();
+    SS_STATE.portal.classList.remove("hidden");
+    positionSelectPortal();
+
+    const isCoarsePointer = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    if (!isCoarsePointer && SS_STATE.searchInput) {
+      setTimeout(() => {
+        try { SS_STATE.searchInput.focus(); } catch (_) {}
+      }, 10);
+    }
+  }
+
+  function enhanceSelectElement(sel) {
+    if (!sel || sel.tagName !== "SELECT") return;
+    if (sel.dataset.ssEnhanced === "1" || sel.dataset.ssSkip === "1" || sel.multiple) return;
+    sel.dataset.ssEnhanced = "1";
+
+    const wrap = document.createElement("div");
+    wrap.className = "ss-wrap";
+    if (sel.classList.contains("admin-car-status-sel")) {
+      wrap.classList.add("ss-wrap-compact");
+    } else if (sel.style && sel.style.width === "auto") {
+      wrap.classList.add("ss-wrap-auto");
+    }
+
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "ss-trigger";
+    trigger.setAttribute("aria-haspopup", "listbox");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.innerHTML = '<span class="ss-label"></span><span class="ss-chevron" aria-hidden="true">' + SS_CHEVRON_SVG + '</span>';
+
+    const parent = sel.parentNode;
+    if (!parent) return;
+    parent.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+    wrap.appendChild(trigger);
+
+    sel.classList.add("ss-native");
+    sel.tabIndex = -1;
+    sel._ssWrap = wrap;
+    sel._ssTrigger = trigger;
+
+    const protoDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+    if (protoDesc && protoDesc.get && protoDesc.set) {
+      Object.defineProperty(sel, "value", {
+        configurable: true,
+        get: function () {
+          return protoDesc.get.call(this);
+        },
+        set: function (v) {
+          protoDesc.set.call(this, v);
+          syncSelectUI(this);
+        }
+      });
+    }
+
+    trigger.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      openSelectPortal(sel);
+    });
+
+    trigger.addEventListener("keydown", e => {
+      if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openSelectPortal(sel);
+      }
+    });
+
+    sel.addEventListener("change", () => syncSelectUI(sel));
+    sel.addEventListener("invalid", () => {
+      trigger.classList.add("ss-invalid");
+      setTimeout(() => trigger.classList.remove("ss-invalid"), 2500);
+    });
+
+    const mo = new MutationObserver(() => syncSelectUI(sel));
+    mo.observe(sel, { childList: true, attributes: true, subtree: true, characterData: true });
+
+    syncSelectUI(sel);
+  }
+
+  function initSearchSelects(scope) {
+    const rootNode = scope || document;
+    rootNode.querySelectorAll("select").forEach(enhanceSelectElement);
+
+    if (SS_STATE.initialized) return;
+    SS_STATE.initialized = true;
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && SS_STATE.activeSelect) closeSelectPortal();
+    });
+
+    document.addEventListener("pointerdown", e => {
+      if (!SS_STATE.activeSelect) return;
+      if (SS_STATE.portal && SS_STATE.portal.contains(e.target)) return;
+      if (SS_STATE.activeSelect._ssWrap && SS_STATE.activeSelect._ssWrap.contains(e.target)) return;
+      closeSelectPortal();
+    });
+
+    document.addEventListener("reset", e => {
+      if (!e.target || typeof e.target.querySelectorAll !== "function") return;
+      setTimeout(() => {
+        e.target.querySelectorAll("select").forEach(syncSelectUI);
+      }, 0);
+    });
+
+    window.addEventListener("resize", () => {
+      if (SS_STATE.activeSelect) positionSelectPortal();
+    });
+
+    window.addEventListener("scroll", e => {
+      if (!SS_STATE.activeSelect) return;
+      if (SS_STATE.portal && e.target && e.target !== document && SS_STATE.portal.contains(e.target)) return;
+      positionSelectPortal();
+    }, true);
+
+    const domObs = new MutationObserver(mutations => {
+      for (const m of mutations) {
+        m.addedNodes.forEach(node => {
+          if (!node || node.nodeType !== 1) return;
+          if (node.tagName === "SELECT") {
+            enhanceSelectElement(node);
+          } else if (typeof node.querySelectorAll === "function") {
+            node.querySelectorAll("select").forEach(enhanceSelectElement);
+          }
+        });
+      }
+    });
+    if (document.body) {
+      domObs.observe(document.body, { childList: true, subtree: true });
+    }
   }
 
   function ensureUiModal() {
@@ -857,6 +1215,7 @@
     apiCall: apiCall,
     initTheme: initTheme,
     applyTheme: applyTheme,
+    initSearchSelects: initSearchSelects,
     uiLoading: uiLoading,
     uiClose: uiClose,
     uiAlert: uiAlert,
