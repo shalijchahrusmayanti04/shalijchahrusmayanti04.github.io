@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Panel Admin - Restu Bumi</title>
+  <script>
+    try { document.documentElement.setAttribute("data-theme", localStorage.getItem("rb_theme_mode") || "light"); } catch (_) {}
+  </script>
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
 <body>
@@ -17,7 +20,8 @@
         </div>
       </a>
       <div class="nav-actions">
-        <a href="index.html" class="btn btn-ghost btn-sm">Lihat Katalog</a>
+        <button type="button" id="themeToggleBtn" class="btn btn-icon" title="Ganti Mode Terang/Gelap">🌙</button>
+        <a href="index.html" class="btn btn-ghost btn-sm">Katalog</a>
         <button type="button" id="refreshDataBtn" class="btn btn-ghost btn-sm hidden">Refresh Data</button>
         <button type="button" id="logoutBtn" class="btn btn-danger btn-sm hidden">Keluar</button>
       </div>
@@ -70,15 +74,7 @@
         </div>
       </section>
 
-      <nav class="tabs">
-        <button class="tab-btn active" data-tab="tabMonitor">Monitor Jatuh Tempo &amp; WA</button>
-        <button class="tab-btn" data-tab="tabTransaksi">Transaksi &amp; Pengembalian</button>
-        <button class="tab-btn" data-tab="tabArmada">Armada Mobil</button>
-        <button class="tab-btn" data-tab="tabPelanggan">Pelanggan</button>
-        <button class="tab-btn" data-tab="tabLaporan">Laporan Keuangan</button>
-        <button class="tab-btn" data-tab="tabPengaturan">Pengaturan</button>
-      </nav>
-
+      
       <!-- TAB 1: MONITOR JATUH TEMPO & WA -->
       <section id="tabMonitor" class="tab-panel">
         <div class="panel-card">
@@ -287,6 +283,37 @@
     </div>
   </main>
 
+
+  <!-- Bottom Neumorphic Dock Menu Admin -->
+  <nav id="adminDockNav" class="dock-nav hidden" aria-label="Menu Admin">
+    <button type="button" class="dock-item active" data-tab="tabMonitor">
+      <span id="dockBadgeMonitor" class="dock-badge hidden">0</span>
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span>Monitor</span>
+    </button>
+    <button type="button" class="dock-item" data-tab="tabTransaksi">
+      <span id="dockBadgePending" class="dock-badge hidden" style="background:var(--warning);">0</span>
+      <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+      <span>Transaksi</span>
+    </button>
+    <button type="button" class="dock-item" data-tab="tabArmada">
+      <svg viewBox="0 0 24 24"><path d="M3 17l2-7h14l2 7"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/><path d="M5 10l2-4h10l2 4"/></svg>
+      <span>Mobil</span>
+    </button>
+    <button type="button" class="dock-item" data-tab="tabPelanggan">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span>Pelanggan</span>
+    </button>
+    <button type="button" class="dock-item" data-tab="tabLaporan">
+      <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      <span>Laporan</span>
+    </button>
+    <button type="button" class="dock-item" data-tab="tabPengaturan">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Setelan</span>
+    </button>
+  </nav>
+
   <!-- MODAL: TAMBAH / EDIT MOBIL (Google Drive Image) -->
   <div id="carModal" class="modal-backdrop">
     <div class="modal">
@@ -362,7 +389,7 @@
             <input type="file" id="carCameraInput" accept="image/*" capture="environment" class="hidden" />
             <input type="file" id="carGalleryInput" accept="image/*" class="hidden" />
             <div id="carUploadStatus" class="upload-status text-muted"></div>
-            <input type="text" id="carPhotoUrl" class="form-control" style="margin-top:8px;" placeholder="Link Google Drive terisi otomatis setelah upload (atau tempel manual)" />
+            <input type="hidden" id="carPhotoUrl" />
             <div id="carPhotoPreviewWrap"></div>
           </div>
 

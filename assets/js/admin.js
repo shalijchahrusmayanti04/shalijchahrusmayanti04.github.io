@@ -9,10 +9,13 @@
   let TOKEN = sessionStorage.getItem(TOKEN_KEY) || "";
   let DATA = { cars: [], transactions: [], customers: [], settings: {} };
   let MONITOR_TIMER = null;
+  let IS_UPLOADING_PHOTO = false;
+  let CAR_PHOTO_UPLOAD_ERROR = false;
 
   const el = id => document.getElementById(id);
 
   function init() {
+    G.initTheme();
     const unlocked = G.unlockConfig();
     if (!unlocked.ok) {
       el("lockScreen").classList.remove("hidden");
@@ -33,14 +36,15 @@
   function bindGlobalEvents() {
     el("loginForm").addEventListener("submit", handleLogin);
     el("logoutBtn").addEventListener("click", logout);
-    el("refreshDataBtn").addEventListener("click", loadDashboard);
+    el("refreshDataBtn").addEventListener("click", () => loadDashboard(false));
 
-    document.querySelectorAll(".tab-btn").forEach(btn => {
+    document.querySelectorAll(".dock-item[data-tab]").forEach(btn => {
       btn.addEventListener("click", () => {
-        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".dock-item[data-tab]").forEach(b => b.classList.remove("active"));
         document.querySelectorAll(".tab-panel").forEach(p => p.classList.add("hidden"));
         btn.classList.add("active");
         el(btn.dataset.tab).classList.remove("hidden");
+        window.scrollTo({ top: 0, behavior: "smooth" });
       });
     });
 
@@ -50,8 +54,7 @@
     el("exportCsvBtn").addEventListener("click", exportReportCsv);
 
     // Car Form & Google Drive preview
-    el("carPhotoUrl").addEventListener("input", updateCarPhotoPreview);
-    el("carTakePhotoBtn").addEventListener("click", () => el("carCameraInput").click());
+        el("carTakePhotoBtn").addEventListener("click", () => el("carCameraInput").click());
     el("carPickGalleryBtn").addEventListener("click", () => el("carGalleryInput").click());
     el("carCameraInput").addEventListener("change", e => handlePhotoUpload(e.target.files[0], "car"));
     el("carGalleryInput").addEventListener("change", e => handlePhotoUpload(e.target.files[0], "car"));
@@ -117,8 +120,7 @@
     const btn = el("loginSubmitBtn");
     el("loginAlert").classList.add("hidden");
     btn.disabled = true;
-    btn.textContent = "Memeriksa...";
-
+    G.uiLoading("Memverifikasi PIN Admin...", "Login Restu Bumi");
     try {
       const res = await G.apiCall(CONFIG, "admin_login", { pin: el("loginPin").value });
       if (!res.ok) throw new Error(res.error || "Login gagal.");
@@ -127,6 +129,7 @@
       el("loginScreen").classList.add("hidden");
       await loadDashboard();
     } catch (err) {
+      G.uiClose();
       el("loginAlert").textContent = err.message;
       el("loginAlert").classList.remove("hidden");
     } finally {
@@ -141,11 +144,13 @@
     if (MONITOR_TIMER) clearInterval(MONITOR_TIMER);
     el("adminContent").classList.add("hidden");
     el("logoutBtn").classList.add("hidden");
+    el("adminDockNav").classList.add("hidden");
     el("refreshDataBtn").classList.add("hidden");
     el("loginScreen").classList.remove("hidden");
   }
 
-  async function loadDashboard() {
+  async function loadDashboard(silent) {
+    if (!silent) G.uiLoading("Mengambil data terbaru dari Google Sheets...", "Memuat Dashboard");
     try {
       const res = await adminApi("dashboard_data", {});
       if (!res.ok) throw new Error(res.error || "Gagal memuat dashboard.");
@@ -157,6 +162,7 @@
 
       el("adminContent").classList.remove("hidden");
       el("logoutBtn").classList.remove("hidden");
+      el("adminDockNav").classList.remove("hidden");
       el("refreshDataBtn").classList.remove("hidden");
       el("adminBrandName").textContent = "Admin • " + (DATA.settings.nama_rental || "Restu Bumi");
 
@@ -165,6 +171,7 @@
         el("reportMonth").value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
       }
 
+      G.uiClose();
       renderAll();
 
       if (MONITOR_TIMER) clearInterval(MONITOR_TIMER);
@@ -173,7 +180,8 @@
         renderKpis();
       }, 30000);
     } catch (err) {
-      alert("Error: " + err.message);
+      G.uiClose();
+      await G.uiAlert("Gagal Memuat Data", err.message, "error");
     }
   }
 
@@ -217,6 +225,16 @@
     el("kpiOverdue").textContent = dueOrOverdue;
     el("kpiPending").textContent = pendingTrx;
     el("kpiOmset").textContent = G.formatRupiah(omset);
+    const bMon = el("dockBadgeMonitor");
+    if (bMon) {
+      bMon.textContent = dueOrOverdue;
+      bMon.classList.toggle("hidden", dueOrOverdue === 0);
+    }
+    const bPen = el("dockBadgePending");
+    if (bPen) {
+      bPen.textContent = pendingTrx;
+      bPen.classList.toggle("hidden", pendingTrx === 0);
+    }
     el("monitorRuleInfo").textContent =
       "Aturan denda aktif: " + rules.persen + "%/jam dari harga harian setelah toleransi " +
       rules.toleransi + " menit • Peringatan H-" + rules.ambang + " menit.";
@@ -477,8 +495,7 @@
     e.preventDefault();
     const btn = el("saveNewTrxBtn");
     btn.disabled = true;
-    btn.textContent = "Menyimpan...";
-
+    G.uiLoading("Menyimpan data mobil ke Google Sheets...", "Menyimpan Mobil");
     try {
       const res = await adminApi("create_transaction", {
         data: {
@@ -499,12 +516,15 @@
           dp_bayar: G.parseRupiah(el("trxDp").value)
         }
       });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error);
       window.__closeModal("newTrxModal");
       el("newTrxForm").reset();
-      await loadDashboard();
+      await G.uiAlert("Transaksi Dimulai", "Transaksi sewa baru berhasil dibuat.", "success");
+      await loadDashboard(true);
     } catch (err) {
-      alert("Gagal membuat transaksi: " + err.message);
+      G.uiClose();
+      await G.uiAlert("Gagal Membuat Transaksi", err.message, "error");
     } finally {
       btn.disabled = false;
       btn.textContent = "Mulai Sewa";
@@ -512,36 +532,50 @@
   }
 
   window.__confirmBooking = async function (idTrx) {
-    const km = prompt("Masukkan KM Awal mobil (opsional):", "0");
+    const km = await G.uiPrompt("Konfirmasi Booking", "Masukkan KM Awal mobil sebelum serah terima (opsional):", "0");
     if (km === null) return;
+    G.uiLoading("Mengonfirmasi booking...", "Memproses");
     try {
       const res = await adminApi("confirm_booking", { id_transaksi: idTrx, km_awal: km });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error);
-      await loadDashboard();
+      await G.uiAlert("Booking Aktif", "Status sewa diubah menjadi Berjalan.", "success");
+      await loadDashboard(true);
     } catch (err) {
-      alert(err.message);
+      G.uiClose();
+      await G.uiAlert("Gagal", err.message, "error");
     }
   };
 
   window.__cancelTrx = async function (idTrx) {
-    if (!confirm("Yakin batalkan transaksi " + idTrx + "?")) return;
+    const ok = await G.uiConfirm("Batalkan Transaksi", "Yakin membatalkan transaksi " + idTrx + "?", "Ya, Batalkan", "btn-danger");
+    if (!ok) return;
+    G.uiLoading("Membatalkan transaksi...", "Memproses");
     try {
       const res = await adminApi("cancel_transaction", { id_transaksi: idTrx });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error);
-      await loadDashboard();
+      await G.uiAlert("Dibatalkan", "Transaksi berhasil dibatalkan.", "info");
+      await loadDashboard(true);
     } catch (err) {
-      alert(err.message);
+      G.uiClose();
+      await G.uiAlert("Gagal", err.message, "error");
     }
   };
 
   window.__markPaid = async function (idTrx) {
-    if (!confirm("Tandai transaksi " + idTrx + " sudah LUNAS?")) return;
+    const ok = await G.uiConfirm("Konfirmasi Pelunasan", "Tandai transaksi " + idTrx + " sudah LUNAS?", "Ya, Lunasi", "btn-success");
+    if (!ok) return;
+    G.uiLoading("Memperbarui status pembayaran...", "Memproses");
     try {
       const res = await adminApi("mark_paid", { id_transaksi: idTrx });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error);
-      await loadDashboard();
+      await G.uiAlert("Lunas", "Transaksi berhasil ditandai Lunas.", "success");
+      await loadDashboard(true);
     } catch (err) {
-      alert(err.message);
+      G.uiClose();
+      await G.uiAlert("Gagal", err.message, "error");
     }
   };
 
@@ -608,7 +642,7 @@
     e.preventDefault();
     const btn = el("saveCheckinBtn");
     btn.disabled = true;
-    btn.textContent = "Memproses...";
+    G.uiLoading("Menghitung denda dan menyelesaikan pengembalian...", "Memproses Check-In");
 
     try {
       const res = await adminApi("checkin_car", {
@@ -623,17 +657,18 @@
           catatan_kondisi: [el("ciNotes").value.trim(), el("ciPhotoUrl").value.trim() ? ("Foto Kondisi: " + el("ciPhotoUrl").value.trim()) : ""].filter(Boolean).join(" | ")
         }
       });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error);
       window.__closeModal("checkinModal");
-      alert(
-        "Pengembalian selesai!\n" +
-        "Jam Telat: " + res.jam_telat + " jam\n" +
-        "Denda: " + G.formatRupiah(res.denda_keterlambatan) + "\n" +
-        "Total Akhir: " + G.formatRupiah(res.total_akhir)
+      await G.uiAlert(
+        "Pengembalian Selesai!",
+        "Jam Telat: " + res.jam_telat + " jam\nDenda: " + G.formatRupiah(res.denda_keterlambatan) + "\nTotal Akhir: " + G.formatRupiah(res.total_akhir),
+        "success"
       );
-      await loadDashboard();
+      await loadDashboard(true);
     } catch (err) {
-      alert("Gagal proses pengembalian: " + err.message);
+      G.uiClose();
+      await G.uiAlert("Gagal Pengembalian", err.message, "error");
     } finally {
       btn.disabled = false;
       btn.textContent = "Selesaikan Pengembalian";
@@ -693,6 +728,8 @@
     el("carForm").reset();
     el("carId").value = "";
     el("carUploadStatus").textContent = "";
+    CAR_PHOTO_UPLOAD_ERROR = false;
+    IS_UPLOADING_PHOTO = false;
     el("carModalTitle").textContent = idMobil ? "Edit Data Mobil" : "Tambah Mobil Baru";
 
     if (idMobil) {
@@ -723,12 +760,18 @@
     const statusEl = el(isCar ? "carUploadStatus" : "ciUploadStatus");
     const urlEl = el(isCar ? "carPhotoUrl" : "ciPhotoUrl");
 
-    try {
-      statusEl.className = "upload-status text-warning";
-      statusEl.textContent = "Mengompresi foto dari HP...";
-      const compressed = await G.compressImageForUpload(file, 1280, 0.8);
+    IS_UPLOADING_PHOTO = true;
+    if (isCar) {
+      CAR_PHOTO_UPLOAD_ERROR = false;
+      el("saveCarBtn").disabled = true;
+    }
 
-      statusEl.textContent = "Mengunggah ke folder Google Drive...";
+    try {
+      G.uiLoading("Mengompresi foto dan mengunggah ke Google Drive...", "Mengunggah Foto");
+      statusEl.className = "upload-status text-warning";
+      statusEl.textContent = "Mengompresi & mengunggah ke Google Drive...";
+
+      const compressed = await G.compressImageForUpload(file, 1280, 0.8);
       const prefix = isCar ? (el("carPlate").value.trim() || "mobil") : (el("ciTrxId").value || "kondisi");
       const fileName = prefix.replace(/\s+/g, "-") + "-" + Date.now() + ".jpg";
 
@@ -739,22 +782,36 @@
           fileName: fileName
         }
       });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error || "Gagal upload ke Google Drive.");
 
       urlEl.value = res.url;
       statusEl.className = "upload-status text-success";
-      statusEl.textContent = "Tersimpan di Google Drive!";
+      statusEl.textContent = "Foto berhasil tersimpan ke Google Drive.";
 
       if (isCar) {
+        CAR_PHOTO_UPLOAD_ERROR = false;
         updateCarPhotoPreview();
       } else {
         el("ciPhotoPreviewWrap").innerHTML = G.renderCarImage(res.url, "Foto Kondisi", "preview-thumb");
       }
+      await G.uiAlert("Upload Berhasil", "Foto berhasil disimpan ke folder Google Drive Anda.", "success");
     } catch (err) {
+      G.uiClose();
+      if (isCar) {
+        CAR_PHOTO_UPLOAD_ERROR = true;
+      }
       statusEl.className = "upload-status text-danger";
       statusEl.textContent = "Gagal upload: " + err.message;
+      await G.uiAlert(
+        "Upload Foto Gagal",
+        err.message + "\n\nMobil tidak dapat disimpan sebelum upload foto berhasil atau error dibersihkan.",
+        "error"
+      );
     } finally {
+      IS_UPLOADING_PHOTO = false;
       if (isCar) {
+        el("saveCarBtn").disabled = false;
         el("carCameraInput").value = "";
         el("carGalleryInput").value = "";
       } else {
@@ -779,6 +836,14 @@
 
   async function handleSaveCar(e) {
     e.preventDefault();
+    if (IS_UPLOADING_PHOTO) {
+      await G.uiAlert("Sedang Mengunggah", "Proses upload foto ke Google Drive belum selesai. Mohon tunggu sebentar.", "warning");
+      return;
+    }
+    if (CAR_PHOTO_UPLOAD_ERROR) {
+      await G.uiAlert("Simpan Dibatalkan", "Upload foto sebelumnya gagal sehingga data mobil tidak disimpan. Silakan ulangi ambil/pilih foto sampai berhasil.", "error");
+      return;
+    }
     const btn = el("saveCarBtn");
     btn.disabled = true;
     btn.textContent = "Menyimpan...";
@@ -800,11 +865,14 @@
           deskripsi: el("carDesc").value.trim()
         }
       });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error);
       window.__closeModal("carModal");
-      await loadDashboard();
+      await G.uiAlert("Berhasil", "Data mobil berhasil disimpan.", "success");
+      await loadDashboard(true);
     } catch (err) {
-      alert("Gagal menyimpan mobil: " + err.message);
+      G.uiClose();
+      await G.uiAlert("Gagal Menyimpan Mobil", err.message, "error");
     } finally {
       btn.disabled = false;
       btn.textContent = "Simpan Mobil";
@@ -812,23 +880,31 @@
   }
 
   window.__changeCarStatus = async function (idMobil, status) {
+    G.uiLoading("Mengubah status mobil...", "Memperbarui");
     try {
       const res = await adminApi("update_car_status", { id_mobil: idMobil, status: status });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error);
-      await loadDashboard();
+      await loadDashboard(true);
     } catch (err) {
-      alert(err.message);
+      G.uiClose();
+      await G.uiAlert("Gagal", err.message, "error");
     }
   };
 
   window.__deleteCar = async function (idMobil) {
-    if (!confirm("Yakin hapus mobil ini dari Google Sheet?")) return;
+    const ok = await G.uiConfirm("Hapus Mobil", "Yakin hapus mobil ini dari Google Sheet?", "Ya, Hapus", "btn-danger");
+    if (!ok) return;
+    G.uiLoading("Menghapus mobil...", "Menghapus");
     try {
       const res = await adminApi("delete_car", { id_mobil: idMobil });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error);
-      await loadDashboard();
+      await G.uiAlert("Terhapus", "Data mobil berhasil dihapus.", "info");
+      await loadDashboard(true);
     } catch (err) {
-      alert(err.message);
+      G.uiClose();
+      await G.uiAlert("Gagal Menghapus", err.message, "error");
     }
   };
 
@@ -875,6 +951,7 @@
 
   async function handleSaveCustomer(e) {
     e.preventDefault();
+    G.uiLoading("Menyimpan data pelanggan...", "Menyimpan");
     try {
       const res = await adminApi("save_customer", {
         data: {
@@ -885,11 +962,14 @@
           catatan: el("editCustNotes").value.trim()
         }
       });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error);
       window.__closeModal("custModal");
-      await loadDashboard();
+      await G.uiAlert("Berhasil", "Data pelanggan diperbarui.", "success");
+      await loadDashboard(true);
     } catch (err) {
-      alert(err.message);
+      G.uiClose();
+      await G.uiAlert("Gagal", err.message, "error");
     }
   }
 
@@ -982,7 +1062,7 @@
     e.preventDefault();
     const btn = el("saveSettingsBtn");
     btn.disabled = true;
-    btn.textContent = "Menyimpan...";
+    G.uiLoading("Menyimpan pengaturan bisnis & Google Drive...", "Menyimpan Pengaturan");
     try {
       const res = await adminApi("save_settings", {
         data: {
@@ -998,11 +1078,13 @@
           admin_pin_baru: el("setPinBaru").value.trim()
         }
       });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error);
-      alert("Pengaturan berhasil disimpan!");
-      await loadDashboard();
+      await G.uiAlert("Tersimpan", "Pengaturan berhasil disimpan!", "success");
+      await loadDashboard(true);
     } catch (err) {
-      alert(err.message);
+      G.uiClose();
+      await G.uiAlert("Gagal", err.message, "error");
     } finally {
       btn.disabled = false;
       btn.textContent = "Simpan Pengaturan";

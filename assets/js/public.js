@@ -18,6 +18,8 @@
   const el = id => document.getElementById(id);
 
   function init() {
+    G.initTheme();
+
     const unlocked = G.unlockConfig();
     if (!unlocked.ok) {
       el("lockScreen").classList.remove("hidden");
@@ -58,8 +60,7 @@
     if (!CONFIG.gasUrl || CONFIG.gasUrl.indexOf("PASTE_URL") !== -1) {
       el("publicAlert").classList.remove("hidden");
       el("publicAlert").innerHTML =
-        "<strong>Mode Belum Terhubung:</strong> URL Google Apps Script belum dipasang di <code>assets/js/config.enc.js</code>. " +
-        "Silakan buka <code>tools/generator-enkripsi.html</code> secara lokal untuk mengenkripsi URL Google Apps Script Anda.";
+        "<strong>Mode Belum Terhubung:</strong> URL Google Apps Script belum dipasang di <code>assets/js/config.enc.js</code>.";
       el("carGrid").innerHTML = '<div class="panel-card">Belum ada data mobil (Google Sheets belum dihubungkan).</div>';
       return;
     }
@@ -89,12 +90,17 @@
       "Denda Overtime: " + SETTINGS.persen_denda_per_jam + "%/jam (Toleransi " + SETTINGS.toleransi_menit + " mnt)";
 
     if (SETTINGS.no_wa_admin) {
+      const waUrl = G.buildWhatsAppUrl(SETTINGS.no_wa_admin, "Halo Admin " + SETTINGS.nama_rental + ", saya ingin bertanya tentang sewa mobil.");
       const waBtn = el("navWaBtn");
-      waBtn.href = G.buildWhatsAppUrl(SETTINGS.no_wa_admin, "Halo Admin " + SETTINGS.nama_rental + ", saya ingin bertanya tentang sewa mobil.");
+      waBtn.href = waUrl;
       waBtn.classList.remove("hidden");
+      const dockWa = el("dockWaBtn");
+      if (dockWa) {
+        dockWa.href = waUrl;
+        dockWa.classList.remove("hidden");
+      }
     }
 
-    // Update label pilihan di modal
     const delivSel = el("bookDelivery");
     delivSel.options[0].textContent = "Ambil Sendiri di Garasi (" + (SETTINGS.alamat_garasi || "Gratis") + ")";
     delivSel.options[1].textContent = "Diantar ke Lokasi Saya (+" + G.formatRupiah(SETTINGS.biaya_antar_default) + ")";
@@ -218,7 +224,7 @@
 
     const btn = el("submitBookingBtn");
     btn.disabled = true;
-    btn.textContent = "Memproses...";
+    G.uiLoading("Menyimpan data pemesanan Anda ke sistem...", "Mengirim Booking");
 
     const payload = {
       id_mobil: SELECTED_CAR.id_mobil,
@@ -236,6 +242,7 @@
 
     try {
       const res = await G.apiCall(CONFIG, "public_booking", { data: payload });
+      G.uiClose();
       if (!res.ok) throw new Error(res.error || "Gagal menyimpan booking.");
 
       const msg =
@@ -253,16 +260,20 @@
 
       closeModal();
       el("bookingForm").reset();
-      alert("Booking berhasil dicatat dengan kode " + res.id_transaksi + "! Anda akan diarahkan ke WhatsApp Admin.");
+      await G.uiAlert(
+        "Booking Berhasil!",
+        "Kode Booking Anda: " + res.id_transaksi + "\nKlik OK untuk melanjutkan konfirmasi ke WhatsApp Admin.",
+        "success"
+      );
 
       if (SETTINGS.no_wa_admin) {
         window.open(G.buildWhatsAppUrl(SETTINGS.no_wa_admin, msg), "_blank");
       }
     } catch (err) {
-      alert("Gagal melakukan booking: " + err.message);
+      G.uiClose();
+      await G.uiAlert("Booking Gagal", err.message, "error");
     } finally {
       btn.disabled = false;
-      btn.textContent = "Pesan & Kirim WhatsApp";
     }
   }
 

@@ -573,6 +573,128 @@
     return json;
   }
 
+
+  // ============================================================================
+  // LIGHT / DARK THEME MANAGER & STATIC MODAL (LOADING / KONFIRMASI / NOTIF)
+  // ============================================================================
+  const THEME_KEY = "rb_theme_mode";
+
+  function applyTheme(mode) {
+    const m = mode === "dark" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", m);
+    try { localStorage.setItem(THEME_KEY, m); } catch (_) {}
+    const btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = m === "dark" ? "☀️" : "🌙";
+  }
+
+  function initTheme() {
+    let saved = "light";
+    try { saved = localStorage.getItem(THEME_KEY) || "light"; } catch (_) {}
+    applyTheme(saved);
+    const btn = document.getElementById("themeToggleBtn");
+    if (btn && !btn.dataset.bound) {
+      btn.dataset.bound = "1";
+      btn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+        applyTheme(cur === "dark" ? "light" : "dark");
+      });
+    }
+  }
+
+  function ensureUiModal() {
+    let bd = document.getElementById("uiStaticModal");
+    if (bd) return bd;
+    bd = document.createElement("div");
+    bd.id = "uiStaticModal";
+    bd.className = "modal-backdrop z-top";
+    bd.innerHTML =
+      '<div class="modal modal-sm" role="dialog" aria-modal="true">' +
+      '  <div class="modal-body" style="text-align:center;padding:26px 22px;">' +
+      '    <div id="uiModalVisual"></div>' +
+      '    <h3 id="uiModalTitle" style="margin-bottom:8px;"></h3>' +
+      '    <div id="uiModalMsg" class="small text-muted" style="white-space:pre-line;line-height:1.55;"></div>' +
+      '    <div id="uiModalInputWrap" class="hidden" style="margin-top:14px;text-align:left;">' +
+      '      <input id="uiModalInput" type="text" class="form-control" />' +
+      '    </div>' +
+      '    <div id="uiModalActions" style="display:flex;gap:10px;justify-content:center;margin-top:20px;"></div>' +
+      '  </div>' +
+      '</div>';
+    document.body.appendChild(bd);
+    return bd;
+  }
+
+  function uiClose() {
+    const bd = document.getElementById("uiStaticModal");
+    if (bd) bd.classList.remove("open");
+  }
+
+  function uiLoading(message, title) {
+    const bd = ensureUiModal();
+    document.getElementById("uiModalVisual").innerHTML = '<div class="spinner"></div>';
+    document.getElementById("uiModalTitle").textContent = title || "Memproses...";
+    document.getElementById("uiModalMsg").textContent = message || "Mohon tunggu sebentar.";
+    document.getElementById("uiModalInputWrap").classList.add("hidden");
+    document.getElementById("uiModalActions").innerHTML = "";
+    bd.classList.add("open");
+  }
+
+  function uiAlert(title, message, type) {
+    return new Promise(resolve => {
+      const bd = ensureUiModal();
+      const iconMap = { success: "✅", error: "❌", warning: "⚠️", info: "ℹ️" };
+      const icon = iconMap[type || "info"] || "ℹ️";
+      document.getElementById("uiModalVisual").innerHTML = '<div class="ui-modal-icon">' + icon + '</div>';
+      document.getElementById("uiModalTitle").textContent = title || "Informasi";
+      document.getElementById("uiModalMsg").textContent = message || "";
+      document.getElementById("uiModalInputWrap").classList.add("hidden");
+      const actions = document.getElementById("uiModalActions");
+      actions.innerHTML = '<button type="button" id="uiOkBtn" class="btn btn-primary" style="min-width:120px;">OK</button>';
+      document.getElementById("uiOkBtn").onclick = () => {
+        uiClose();
+        resolve(true);
+      };
+      bd.classList.add("open");
+    });
+  }
+
+  function uiConfirm(title, message, okText, okClass) {
+    return new Promise(resolve => {
+      const bd = ensureUiModal();
+      document.getElementById("uiModalVisual").innerHTML = '<div class="ui-modal-icon">❓</div>';
+      document.getElementById("uiModalTitle").textContent = title || "Konfirmasi";
+      document.getElementById("uiModalMsg").textContent = message || "";
+      document.getElementById("uiModalInputWrap").classList.add("hidden");
+      const actions = document.getElementById("uiModalActions");
+      actions.innerHTML =
+        '<button type="button" id="uiCancelBtn" class="btn btn-ghost" style="flex:1;">Batal</button>' +
+        '<button type="button" id="uiYesBtn" class="btn ' + (okClass || "btn-primary") + '" style="flex:1;">' + escapeHtml(okText || "Ya, Lanjutkan") + '</button>';
+      document.getElementById("uiCancelBtn").onclick = () => { uiClose(); resolve(false); };
+      document.getElementById("uiYesBtn").onclick = () => { uiClose(); resolve(true); };
+      bd.classList.add("open");
+    });
+  }
+
+  function uiPrompt(title, message, defaultVal) {
+    return new Promise(resolve => {
+      const bd = ensureUiModal();
+      document.getElementById("uiModalVisual").innerHTML = '<div class="ui-modal-icon">✏️</div>';
+      document.getElementById("uiModalTitle").textContent = title || "Input Data";
+      document.getElementById("uiModalMsg").textContent = message || "";
+      const wrap = document.getElementById("uiModalInputWrap");
+      const inp = document.getElementById("uiModalInput");
+      wrap.classList.remove("hidden");
+      inp.value = defaultVal !== undefined ? String(defaultVal) : "";
+      const actions = document.getElementById("uiModalActions");
+      actions.innerHTML =
+        '<button type="button" id="uiCancelBtn" class="btn btn-ghost" style="flex:1;">Batal</button>' +
+        '<button type="button" id="uiYesBtn" class="btn btn-primary" style="flex:1;">Lanjutkan</button>';
+      document.getElementById("uiCancelBtn").onclick = () => { uiClose(); resolve(null); };
+      document.getElementById("uiYesBtn").onclick = () => { const v = inp.value; uiClose(); resolve(v); };
+      bd.classList.add("open");
+      setTimeout(() => inp.focus(), 60);
+    });
+  }
+
   global.RentalGuard = {
     encryptConfigForDomains: encryptConfigForDomains,
     unlockConfig: unlockConfig,
@@ -591,6 +713,13 @@
     normalizePhone: normalizePhone,
     buildWhatsAppUrl: buildWhatsAppUrl,
     calculateOvertime: calculateOvertime,
-    apiCall: apiCall
+    apiCall: apiCall,
+    initTheme: initTheme,
+    applyTheme: applyTheme,
+    uiLoading: uiLoading,
+    uiClose: uiClose,
+    uiAlert: uiAlert,
+    uiConfirm: uiConfirm,
+    uiPrompt: uiPrompt
   };
 })(window);
