@@ -127,7 +127,8 @@
       TOKEN = res.token;
       sessionStorage.setItem(TOKEN_KEY, TOKEN);
       el("loginScreen").classList.add("hidden");
-      await loadDashboard();
+      await loadDashboard(true);
+      G.uiClose();
     } catch (err) {
       G.uiClose();
       el("loginAlert").textContent = err.message;
@@ -516,12 +517,13 @@
           dp_bayar: G.parseRupiah(el("trxDp").value)
         }
       });
-      G.uiClose();
       if (!res.ok) throw new Error(res.error);
       window.__closeModal("newTrxModal");
       el("newTrxForm").reset();
-      await G.uiAlert("Transaksi Dimulai", "Transaksi sewa baru berhasil dibuat.", "success");
+      G.uiLoading("Memperbarui daftar transaksi...", "Sinkronisasi Data");
       await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Transaksi Dimulai", "Transaksi sewa baru berhasil dibuat.", "success");
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal Membuat Transaksi", err.message, "error");
@@ -537,10 +539,11 @@
     G.uiLoading("Mengonfirmasi booking...", "Memproses");
     try {
       const res = await adminApi("confirm_booking", { id_transaksi: idTrx, km_awal: km });
-      G.uiClose();
       if (!res.ok) throw new Error(res.error);
-      await G.uiAlert("Booking Aktif", "Status sewa diubah menjadi Berjalan.", "success");
+      G.uiLoading("Memperbarui daftar transaksi...", "Sinkronisasi Data");
       await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Booking Aktif", "Status sewa diubah menjadi Berjalan.", "success");
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal", err.message, "error");
@@ -553,10 +556,11 @@
     G.uiLoading("Membatalkan transaksi...", "Memproses");
     try {
       const res = await adminApi("cancel_transaction", { id_transaksi: idTrx });
-      G.uiClose();
       if (!res.ok) throw new Error(res.error);
-      await G.uiAlert("Dibatalkan", "Transaksi berhasil dibatalkan.", "info");
+      G.uiLoading("Memperbarui daftar transaksi...", "Sinkronisasi Data");
       await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Dibatalkan", "Transaksi berhasil dibatalkan.", "info");
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal", err.message, "error");
@@ -569,10 +573,11 @@
     G.uiLoading("Memperbarui status pembayaran...", "Memproses");
     try {
       const res = await adminApi("mark_paid", { id_transaksi: idTrx });
-      G.uiClose();
       if (!res.ok) throw new Error(res.error);
-      await G.uiAlert("Lunas", "Transaksi berhasil ditandai Lunas.", "success");
+      G.uiLoading("Memperbarui data pembayaran...", "Sinkronisasi Data");
       await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Lunas", "Transaksi berhasil ditandai Lunas.", "success");
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal", err.message, "error");
@@ -657,15 +662,16 @@
           catatan_kondisi: [el("ciNotes").value.trim(), el("ciPhotoUrl").value.trim() ? ("Foto Kondisi: " + el("ciPhotoUrl").value.trim()) : ""].filter(Boolean).join(" | ")
         }
       });
-      G.uiClose();
       if (!res.ok) throw new Error(res.error);
       window.__closeModal("checkinModal");
+      G.uiLoading("Memperbarui status armada & transaksi...", "Sinkronisasi Data");
+      await loadDashboard(true);
+      G.uiClose();
       await G.uiAlert(
         "Pengembalian Selesai!",
         "Jam Telat: " + res.jam_telat + " jam\nDenda: " + G.formatRupiah(res.denda_keterlambatan) + "\nTotal Akhir: " + G.formatRupiah(res.total_akhir),
         "success"
       );
-      await loadDashboard(true);
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal Pengembalian", err.message, "error");
@@ -865,11 +871,12 @@
           deskripsi: el("carDesc").value.trim()
         }
       });
-      G.uiClose();
       if (!res.ok) throw new Error(res.error);
       window.__closeModal("carModal");
-      await G.uiAlert("Berhasil", "Data mobil berhasil disimpan.", "success");
+      G.uiLoading("Memperbarui data mobil...", "Sinkronisasi Data");
       await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Berhasil", "Data mobil berhasil disimpan.", "success");
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal Menyimpan Mobil", err.message, "error");
@@ -883,9 +890,11 @@
     G.uiLoading("Mengubah status mobil...", "Memperbarui");
     try {
       const res = await adminApi("update_car_status", { id_mobil: idMobil, status: status });
-      G.uiClose();
       if (!res.ok) throw new Error(res.error);
+      G.uiLoading("Memperbarui status mobil...", "Sinkronisasi Data");
       await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Status Diperbarui", "Status armada berhasil diperbarui.", "success");
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal", err.message, "error");
@@ -898,10 +907,11 @@
     G.uiLoading("Menghapus mobil...", "Menghapus");
     try {
       const res = await adminApi("delete_car", { id_mobil: idMobil });
-      G.uiClose();
       if (!res.ok) throw new Error(res.error);
-      await G.uiAlert("Terhapus", "Data mobil berhasil dihapus.", "info");
+      G.uiLoading("Memperbarui daftar mobil...", "Sinkronisasi Data");
       await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Terhapus", "Data mobil berhasil dihapus.", "info");
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal Menghapus", err.message, "error");
@@ -962,11 +972,12 @@
           catatan: el("editCustNotes").value.trim()
         }
       });
-      G.uiClose();
       if (!res.ok) throw new Error(res.error);
       window.__closeModal("custModal");
-      await G.uiAlert("Berhasil", "Data pelanggan diperbarui.", "success");
+      G.uiLoading("Memperbarui data pelanggan...", "Sinkronisasi Data");
       await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Berhasil", "Data pelanggan diperbarui.", "success");
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal", err.message, "error");
@@ -1078,10 +1089,11 @@
           admin_pin_baru: el("setPinBaru").value.trim()
         }
       });
-      G.uiClose();
       if (!res.ok) throw new Error(res.error);
-      await G.uiAlert("Tersimpan", "Pengaturan berhasil disimpan!", "success");
+      G.uiLoading("Memperbarui pengaturan...", "Sinkronisasi Data");
       await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Tersimpan", "Pengaturan berhasil disimpan!", "success");
     } catch (err) {
       G.uiClose();
       await G.uiAlert("Gagal", err.message, "error");
