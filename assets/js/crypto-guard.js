@@ -407,7 +407,7 @@
       '<path d="M125 225h350l-28-68c-6-15-20-25-36-25H194c-16 0-30 10-36 25l-33 68z" fill="#1e293b" stroke="#38bdf8" stroke-width="6"/>' +
       '<circle cx="190" cy="235" r="32" fill="#020617" stroke="#38bdf8" stroke-width="6"/>' +
       '<circle cx="410" cy="235" r="32" fill="#020617" stroke="#38bdf8" stroke-width="6"/>' +
-      '<text x="300" y="305" text-anchor="middle" fill="#94a3b8" font-family="sans-serif" font-size="20">Foto Armada (Google Drive)</text>' +
+      '<text x="300" y="305" text-anchor="middle" fill="#94a3b8" font-family="sans-serif" font-size="20">Foto Armada Restu Bumi</text>' +
       '</svg>'
     );
 
@@ -687,7 +687,7 @@
    */
   async function apiCall(config, action, payload) {
     if (!config || !config.gasUrl || config.gasUrl.indexOf("http") !== 0) {
-      throw new Error("URL Google Apps Script belum dikonfigurasi pada config.enc.js.");
+      throw new Error("URL server belum dikonfigurasi pada config.enc.js.");
     }
     const body = Object.assign({ action: action, appKey: config.appKey }, payload || {});
     const res = await fetch(config.gasUrl, {
@@ -696,7 +696,7 @@
       body: JSON.stringify(body)
     });
     if (!res.ok) {
-      throw new Error("Gagal terhubung ke server Google Apps Script (HTTP " + res.status + ").");
+      throw new Error("Gagal terhubung ke server (HTTP " + res.status + ").");
     }
     const json = await res.json();
     return json;

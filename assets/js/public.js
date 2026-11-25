@@ -60,8 +60,8 @@
     if (!CONFIG.gasUrl || CONFIG.gasUrl.indexOf("PASTE_URL") !== -1) {
       el("publicAlert").classList.remove("hidden");
       el("publicAlert").innerHTML =
-        "<strong>Mode Belum Terhubung:</strong> URL Google Apps Script belum dipasang di <code>assets/js/config.enc.js</code>.";
-      el("carGrid").innerHTML = '<div class="panel-card">Belum ada data mobil (Google Sheets belum dihubungkan).</div>';
+        "<strong>Mode Belum Terhubung:</strong> Konfigurasi server belum dipasang di <code>assets/js/config.enc.js</code>.";
+      el("carGrid").innerHTML = '<div class="panel-card">Belum ada data mobil (server belum dihubungkan).</div>';
       return;
     }
 
@@ -75,7 +75,7 @@
     } catch (err) {
       el("publicAlert").classList.remove("hidden");
       el("publicAlert").textContent = "Error: " + err.message;
-      el("carGrid").innerHTML = '<div class="panel-card text-danger">Gagal memuat data dari Google Sheets.</div>';
+      el("carGrid").innerHTML = '<div class="panel-card text-danger">Gagal memuat data armada dari server.</div>';
     }
   }
 

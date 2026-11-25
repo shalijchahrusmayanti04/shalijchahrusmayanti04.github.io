@@ -219,7 +219,7 @@
   }
 
   async function loadDashboard(silent) {
-    if (!silent) G.uiLoading("Mengambil data terbaru dari Google Sheets...", "Memuat Dashboard");
+    if (!silent) G.uiLoading("Mengambil data terbaru...", "Memuat Dashboard");
     try {
       const res = await adminApi("dashboard_data", {});
       if (!res.ok) throw new Error(res.error || "Gagal memuat dashboard.");
@@ -632,7 +632,7 @@
     e.preventDefault();
     const btn = el("saveNewTrxBtn");
     btn.disabled = true;
-    G.uiLoading("Menyimpan data mobil ke Google Sheets...", "Menyimpan Mobil");
+    G.uiLoading("Menyimpan transaksi sewa baru...", "Menyimpan Transaksi");
     try {
       const res = await adminApi("create_transaction", {
         data: {
@@ -895,7 +895,7 @@
 
     try {
       if (PENDING_CI_PHOTO) {
-        G.uiLoading("Mengunggah foto kondisi ke Google Drive...", "Mengunggah Foto");
+        G.uiLoading("Mengunggah foto kondisi...", "Mengunggah Foto");
         const prefix = (el("ciTrxId").value || "kondisi").replace(/\s+/g, "-");
         const upRes = await adminApi("upload_drive_image", {
           data: {
@@ -904,7 +904,7 @@
             fileName: prefix + "-" + Date.now() + ".jpg"
           }
         });
-        if (!upRes.ok) throw new Error(upRes.error || "Gagal upload foto kondisi ke Google Drive.");
+        if (!upRes.ok) throw new Error(upRes.error || "Gagal mengunggah foto kondisi.");
         el("ciPhotoUrl").value = upRes.url;
         PENDING_CI_PHOTO = null;
       }
@@ -1222,7 +1222,7 @@
         const imgHtml = item.kind === "pending"
           ? '<img src="' + item.previewDataUrl + '" alt="Preview Foto ' + (idx + 1) + '">'
           : G.renderCarImage(item.url, "Foto " + (idx + 1), "");
-        const tag = idx === 0 ? "Utama" : (item.kind === "pending" ? "Baru" : "Drive");
+        const tag = idx === 0 ? "Utama" : (item.kind === "pending" ? "Baru" : "Tersimpan");
         return `
           <div class="multi-photo-item">
             ${imgHtml}
@@ -1277,7 +1277,7 @@
         CAR_PHOTO_UPLOAD_ERROR = false;
         renderCarPhotoItems();
         statusEl.className = "upload-status text-success";
-        statusEl.textContent = CAR_PHOTO_ITEMS.length + " foto siap (akan diupload ke Google Drive saat Simpan).";
+        statusEl.textContent = CAR_PHOTO_ITEMS.length + " foto siap (akan diupload saat Simpan).";
       } else {
         const compressed = await G.compressImageForUpload(files[0], 1280, 0.8);
         PENDING_CI_PHOTO = {
@@ -1335,7 +1335,7 @@
         if (item.kind !== "pending") continue;
         uploadedIdx++;
         G.uiLoading(
-          "Mengunggah foto " + uploadedIdx + " dari " + pendingCount + " ke Google Drive...",
+          "Mengunggah foto " + uploadedIdx + " dari " + pendingCount + "...",
           "Mengunggah Foto"
         );
         const prefix = (el("carPlate").value.trim() || "mobil").replace(/\s+/g, "-");
@@ -1347,7 +1347,7 @@
           }
         });
         if (!upRes.ok) {
-          throw new Error("UPLOAD_FAILED:" + (upRes.error || "Gagal upload foto ke Google Drive."));
+          throw new Error("UPLOAD_FAILED:" + (upRes.error || "Gagal mengunggah foto."));
         }
         CAR_PHOTO_ITEMS[i] = { kind: "url", url: upRes.url };
       }
@@ -1356,10 +1356,10 @@
       el("carPhotoUrl").value = finalFotoUrl;
       if (pendingCount > 0) {
         el("carUploadStatus").className = "upload-status text-success";
-        el("carUploadStatus").textContent = "Semua foto berhasil diupload ke Google Drive.";
+        el("carUploadStatus").textContent = "Semua foto berhasil diupload.";
       }
 
-      G.uiLoading("Menyimpan data mobil ke Google Sheets...", "Menyimpan Mobil");
+      G.uiLoading("Menyimpan data mobil...", "Menyimpan Mobil");
       const res = await adminApi("save_car", {
         data: {
           id_mobil: el("carId").value,
@@ -1420,7 +1420,7 @@
   };
 
   window.__deleteCar = async function (idMobil) {
-    const ok = await G.uiConfirm("Hapus Mobil", "Yakin hapus mobil ini dari Google Sheet?", "Ya, Hapus", "btn-danger");
+    const ok = await G.uiConfirm("Hapus Mobil", "Yakin hapus mobil ini dari daftar armada?", "Ya, Hapus", "btn-danger");
     if (!ok) return;
     G.uiLoading("Menghapus mobil...", "Menghapus");
     try {
@@ -1591,7 +1591,7 @@
     e.preventDefault();
     const btn = el("saveSettingsBtn");
     btn.disabled = true;
-    G.uiLoading("Menyimpan pengaturan bisnis & Google Drive...", "Menyimpan Pengaturan");
+    G.uiLoading("Menyimpan pengaturan bisnis & penyimpanan...", "Menyimpan Pengaturan");
     try {
       const res = await adminApi("save_settings", {
         data: {
