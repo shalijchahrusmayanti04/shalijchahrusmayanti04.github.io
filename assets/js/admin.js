@@ -4,15 +4,16 @@
   const G = window.RentalGuard;
   const TOKEN_KEY = "rm_admin_token_v1";
   const ACTIVE_TAB_KEY = "rb_admin_active_tab_v1";
+  const ACTIVE_SUBTAB_KEY = "rb_admin_mobil_subtab_v1";
   const DEFAULT_DRIVE_FOLDER = "https://drive.google.com/drive/folders/1vDgNQXMj9WatFSJPlbDDmkybk-euko7u?usp=sharing";
 
   let CONFIG = null;
   let TOKEN = sessionStorage.getItem(TOKEN_KEY) || "";
-  let DATA = { cars: [], transactions: [], customers: [], settings: {} };
+  let DATA = { cars: [], brands: [], types: [], transactions: [], customers: [], settings: {} };
   let MONITOR_TIMER = null;
   let IS_UPLOADING_PHOTO = false;
   let CAR_PHOTO_UPLOAD_ERROR = false;
-  let PENDING_CAR_PHOTO = null;
+  let CAR_PHOTO_ITEMS = [];
   let PENDING_CI_PHOTO = null;
 
   const el = id => document.getElementById(id);
@@ -50,6 +51,19 @@
     if (shouldScroll) window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function switchMobilSubTab(subTabId) {
+    const btn =
+      document.querySelector('.subtab-btn[data-subtab="' + subTabId + '"]') ||
+      document.querySelector('.subtab-btn[data-subtab="subTabMobil"]');
+    const resolved = btn ? btn.dataset.subtab : "subTabMobil";
+    document.querySelectorAll(".subtab-btn[data-subtab]").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".subtab-panel").forEach(p => p.classList.add("hidden"));
+    if (btn) btn.classList.add("active");
+    const panel = el(resolved);
+    if (panel) panel.classList.remove("hidden");
+    try { sessionStorage.setItem(ACTIVE_SUBTAB_KEY, resolved); } catch (_) {}
+  }
+
   function bindGlobalEvents() {
     el("loginForm").addEventListener("submit", handleLogin);
     el("logoutBtn").addEventListener("click", confirmLogout);
@@ -57,6 +71,10 @@
 
     document.querySelectorAll(".dock-item[data-tab]").forEach(btn => {
       btn.addEventListener("click", () => switchTab(btn.dataset.tab, true));
+    });
+
+    document.querySelectorAll(".subtab-btn[data-subtab]").forEach(btn => {
+      btn.addEventListener("click", () => switchMobilSubTab(btn.dataset.subtab));
     });
 
     el("trxStatusFilter").addEventListener("change", renderTransactions);
@@ -67,8 +85,8 @@
     // Car Form & Google Drive preview
         el("carTakePhotoBtn").addEventListener("click", () => el("carCameraInput").click());
     el("carPickGalleryBtn").addEventListener("click", () => el("carGalleryInput").click());
-    el("carCameraInput").addEventListener("change", e => handlePhotoUpload(e.target.files[0], "car"));
-    el("carGalleryInput").addEventListener("change", e => handlePhotoUpload(e.target.files[0], "car"));
+    el("carCameraInput").addEventListener("change", e => handlePhotoUpload(e.target.files, "car"));
+    el("carGalleryInput").addEventListener("change", e => handlePhotoUpload(e.target.files, "car"));
 
     el("ciTakePhotoBtn").addEventListener("click", () => el("ciCameraInput").click());
     el("ciPickGalleryBtn").addEventListener("click", () => el("ciGalleryInput").click());
@@ -100,6 +118,31 @@
       updateNewTrxSummary();
     });
     el("newTrxForm").addEventListener("submit", handleCreateTransaction);
+
+    // Edit Transaction Form (Monitor)
+    ["editTrxCarId", "editTrxStart", "editTrxEnd", "editTrxDeliveryMethod", "editTrxDeliveryFee", "editTrxDriverMethod", "editTrxDriverFee", "editTrxDp"].forEach(id => {
+      el(id).addEventListener("change", updateEditTrxSummary);
+      el(id).addEventListener("input", updateEditTrxSummary);
+    });
+    el("editTrxDeliveryMethod").addEventListener("change", () => {
+      const isDiantar = el("editTrxDeliveryMethod").value === "Diantar";
+      el("editTrxDeliveryAddrWrap").classList.toggle("hidden", !isDiantar);
+      if (isDiantar && G.parseRupiah(el("editTrxDeliveryFee").value) === 0) {
+        G.setRupiahInput(el("editTrxDeliveryFee"), Number(DATA.settings.biaya_antar_default) || 50000);
+      } else if (!isDiantar) {
+        G.setRupiahInput(el("editTrxDeliveryFee"), 0);
+      }
+      updateEditTrxSummary();
+    });
+    el("editTrxDriverMethod").addEventListener("change", () => {
+      updateEditDriverFeeDefault();
+      updateEditTrxSummary();
+    });
+    el("editTrxForm").addEventListener("submit", handleEditTransaction);
+
+    // Brand & Type Master Forms
+    el("brandForm").addEventListener("submit", handleSaveBrand);
+    el("typeForm").addEventListener("submit", handleSaveType);
 
     // Check-In Form
     ["ciReturnTime", "ciDendaOverride", "ciExtraFee", "ciPayNow"].forEach(id => {
@@ -164,6 +207,7 @@
     TOKEN = "";
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(ACTIVE_TAB_KEY);
+    sessionStorage.removeItem(ACTIVE_SUBTAB_KEY);
     if (MONITOR_TIMER) clearInterval(MONITOR_TIMER);
     el("adminContent").classList.add("hidden");
     el("logoutBtn").classList.add("hidden");
@@ -179,6 +223,8 @@
       if (!res.ok) throw new Error(res.error || "Gagal memuat dashboard.");
 
       DATA.cars = res.cars || [];
+      DATA.brands = res.brands || [];
+      DATA.types = res.types || [];
       DATA.transactions = res.transactions || [];
       DATA.customers = res.customers || [];
       DATA.settings = res.settings || {};
@@ -199,6 +245,9 @@
       let savedTab = "tabMonitor";
       try { savedTab = sessionStorage.getItem(ACTIVE_TAB_KEY) || "tabMonitor"; } catch (_) {}
       switchTab(savedTab, false);
+      let savedSubTab = "subTabMobil";
+      try { savedSubTab = sessionStorage.getItem(ACTIVE_SUBTAB_KEY) || "subTabMobil"; } catch (_) {}
+      switchMobilSubTab(savedSubTab);
 
       if (MONITOR_TIMER) clearInterval(MONITOR_TIMER);
       MONITOR_TIMER = setInterval(() => {
@@ -216,6 +265,8 @@
     renderMonitor();
     renderTransactions();
     renderCars();
+    renderBrands();
+    renderTypes();
     renderCustomers();
     renderReport();
     fillSettingsForm();
@@ -323,7 +374,11 @@
             ${dendaText}
             ${remindedText}
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;gap:7px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="window.__openEditTrxModal('${G.escapeHtml(trx.id_transaksi)}')">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
             <button type="button" class="btn btn-wa btn-sm" onclick="window.__sendWaReminder('${G.escapeHtml(trx.id_transaksi)}')">
               Kirim WA Peringatan
             </button>
@@ -558,6 +613,111 @@
     }
   }
 
+  window.__openEditTrxModal = function (idTrx) {
+    const trx = DATA.transactions.find(t => t.id_transaksi === idTrx);
+    if (!trx) return;
+    const sel = el("editTrxCarId");
+    const availCars = DATA.cars.filter(c => c.status === "Tersedia" || c.id_mobil === trx.id_mobil);
+    const list = availCars.length > 0 ? availCars : DATA.cars;
+    sel.innerHTML = list.map(c =>
+      `<option value="${G.escapeHtml(c.id_mobil)}" data-rate="${c.id_mobil === trx.id_mobil ? (trx.harga_harian_deal || c.harga_24jam) : c.harga_24jam}">` +
+      `${G.escapeHtml(c.nama_mobil)} (${G.escapeHtml(c.plat_nomor)}) - ${G.formatRupiah(c.harga_24jam)}/hari [${G.escapeHtml(c.status)}]` +
+      `</option>`
+    ).join("");
+    sel.value = trx.id_mobil;
+    el("editTrxId").value = trx.id_transaksi;
+    el("editTrxName").value = trx.nama_pelanggan || "";
+    el("editTrxWa").value = trx.no_wa || "";
+    el("editTrxNik").value = trx.nik_sim || "";
+    el("editTrxAddr").value = trx.alamat_pelanggan || "";
+    el("editTrxStart").value = G.toLocalInputValue(trx.tgl_jam_mulai);
+    el("editTrxEnd").value = G.toLocalInputValue(trx.tgl_jam_selesai);
+    const metode = trx.metode_ambil === "Diantar" ? "Diantar" : "Ambil Sendiri";
+    el("editTrxDeliveryMethod").value = metode;
+    el("editTrxDeliveryAddrWrap").classList.toggle("hidden", metode !== "Diantar");
+    el("editTrxDeliveryAddr").value = trx.alamat_antar && trx.alamat_antar !== "-" ? trx.alamat_antar : "";
+    G.setRupiahInput(el("editTrxDeliveryFee"), Number(trx.biaya_antar) || 0);
+    el("editTrxDriverMethod").value = trx.layanan_sopir === "Dengan Sopir" ? "Dengan Sopir" : "Lepas Kunci";
+    G.setRupiahInput(el("editTrxDriverFee"), Number(trx.biaya_sopir) || 0);
+    el("editTrxKmAwal").value = Number(trx.km_awal) || 0;
+    G.setRupiahInput(el("editTrxDp"), Number(trx.dp_bayar) || 0);
+    updateEditTrxSummary();
+    el("editTrxModal").classList.add("open");
+  };
+
+  function getEditTrxDays() {
+    const s = new Date(el("editTrxStart").value);
+    const e = new Date(el("editTrxEnd").value);
+    if (isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) return 1;
+    return Math.max(1, Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)));
+  }
+
+  function updateEditDriverFeeDefault() {
+    if (el("editTrxDriverMethod").value === "Dengan Sopir") {
+      G.setRupiahInput(el("editTrxDriverFee"), getEditTrxDays() * (Number(DATA.settings.biaya_sopir_per_hari) || 150000));
+    } else {
+      G.setRupiahInput(el("editTrxDriverFee"), 0);
+    }
+  }
+
+  function updateEditTrxSummary() {
+    const days = getEditTrxDays();
+    const opt = el("editTrxCarId").selectedOptions[0];
+    const rate = opt ? Number(opt.dataset.rate || 0) : 0;
+    const base = days * rate;
+    const deliv = el("editTrxDeliveryMethod").value === "Diantar" ? G.parseRupiah(el("editTrxDeliveryFee").value) : 0;
+    const drv = el("editTrxDriverMethod").value === "Dengan Sopir" ? G.parseRupiah(el("editTrxDriverFee").value) : 0;
+    const total = base + deliv + drv;
+    const dp = G.parseRupiah(el("editTrxDp").value);
+    const remain = Math.max(0, total - dp);
+    el("editTrxSumDays").textContent = days + " Hari";
+    el("editTrxSumBase").textContent = G.formatRupiah(base);
+    el("editTrxSumDeliv").textContent = G.formatRupiah(deliv);
+    el("editTrxSumDrv").textContent = G.formatRupiah(drv);
+    el("editTrxSumTotal").textContent = G.formatRupiah(total);
+    el("editTrxSumRemain").textContent = G.formatRupiah(remain);
+  }
+
+  async function handleEditTransaction(e) {
+    e.preventDefault();
+    const btn = el("saveEditTrxBtn");
+    btn.disabled = true;
+    G.uiLoading("Menyimpan perubahan transaksi sewa...", "Memperbarui Transaksi");
+    try {
+      const res = await adminApi("update_transaction", {
+        data: {
+          id_transaksi: el("editTrxId").value,
+          id_mobil: el("editTrxCarId").value,
+          nama_pelanggan: el("editTrxName").value.trim(),
+          no_wa: el("editTrxWa").value.trim(),
+          nik_sim: el("editTrxNik").value.trim(),
+          alamat_pelanggan: el("editTrxAddr").value.trim(),
+          tgl_jam_mulai: el("editTrxStart").value,
+          tgl_jam_selesai: el("editTrxEnd").value,
+          durasi_hari: getEditTrxDays(),
+          metode_ambil: el("editTrxDeliveryMethod").value,
+          biaya_antar: G.parseRupiah(el("editTrxDeliveryFee").value),
+          alamat_antar: el("editTrxDeliveryAddr").value.trim(),
+          layanan_sopir: el("editTrxDriverMethod").value,
+          biaya_sopir: G.parseRupiah(el("editTrxDriverFee").value),
+          km_awal: Number(el("editTrxKmAwal").value) || 0,
+          dp_bayar: G.parseRupiah(el("editTrxDp").value)
+        }
+      });
+      if (!res.ok) throw new Error(res.error);
+      window.__closeModal("editTrxModal");
+      G.uiLoading("Memperbarui monitor & transaksi...", "Sinkronisasi Data");
+      await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Transaksi Diperbarui", "Data transaksi sewa berhasil diperbarui.", "success");
+    } catch (err) {
+      G.uiClose();
+      await G.uiAlert("Gagal Memperbarui", err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   window.__confirmBooking = async function (idTrx) {
     const km = await G.uiPrompt("Konfirmasi Booking", "Masukkan KM Awal mobil sebelum serah terima (opsional):", "0");
     if (km === null) return;
@@ -726,52 +886,231 @@
   }
 
   // ============================================================================
-  // TAB 3: ARMADA MOBIL (Google Drive Image)
+  // TAB 3: ARMADA MOBIL, MASTER MERK & MASTER TYPE (Multi-Foto Google Drive)
   // ============================================================================
   function renderCars() {
+    const grid = el("adminCarGrid");
+    if (!grid) return;
     if (DATA.cars.length === 0) {
-      el("carTableBody").innerHTML = '<tr><td colspan="6" class="text-muted">Belum ada data mobil.</td></tr>';
+      grid.innerHTML = '<div class="panel-card text-muted" style="grid-column:1/-1;">Belum ada data mobil. Klik + Tambah Mobil untuk memulai.</div>';
       return;
     }
 
-    el("carTableBody").innerHTML = DATA.cars.map(c => {
+    grid.innerHTML = DATA.cars.map(c => {
       const stCls = c.status === "Tersedia" ? "badge-success" : (c.status === "Disewa" ? "badge-warning" : "badge-danger");
+      const metaParts = [c.merk, c.type_mobil, c.tahun].filter(Boolean).map(v => G.escapeHtml(v));
+      return `
+        <article class="car-card">
+          <div class="car-media">
+            ${G.renderCarGallery(c.foto_url, c.nama_mobil, "car-img")}
+            <span class="badge ${stCls} car-badge-float">${G.escapeHtml(c.status)}</span>
+          </div>
+          <div class="car-body">
+            <div class="car-head">
+              <div class="car-title">${G.escapeHtml(c.nama_mobil)}</div>
+              ${metaParts.length ? `<div class="car-meta-line">${metaParts.join(" • ")}</div>` : ""}
+            </div>
+            <div class="car-specs">
+              <span class="car-spec-item">${G.escapeHtml(c.transmisi || "Matic")}</span>
+              <span class="car-spec-item">${G.escapeHtml(c.kapasitas || 5)} Kursi</span>
+              <span class="car-spec-item">${G.escapeHtml(c.plat_nomor || "-")}</span>
+            </div>
+            ${c.deskripsi ? `<p class="car-desc">${G.escapeHtml(c.deskripsi)}</p>` : ""}
+            <div class="car-price-row">
+              <div>
+                <div class="price-main">${G.formatRupiah(c.harga_24jam)}<span class="price-unit"> /24 jam</span></div>
+                ${Number(c.harga_12jam) > 0 ? `<div class="price-sub">12 Jam: ${G.formatRupiah(c.harga_12jam)}</div>` : ""}
+              </div>
+            </div>
+            <div class="admin-car-actions">
+              <select class="form-control admin-car-status-sel" onchange="window.__changeCarStatus('${G.escapeHtml(c.id_mobil)}', this.value)">
+                <option value="Tersedia" ${c.status === "Tersedia" ? "selected" : ""}>Tersedia</option>
+                <option value="Disewa" ${c.status === "Disewa" ? "selected" : ""}>Disewa</option>
+                <option value="Servis" ${c.status === "Servis" ? "selected" : ""}>Servis</option>
+              </select>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="window.__openCarModal('${G.escapeHtml(c.id_mobil)}')">Edit</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="window.__deleteCar('${G.escapeHtml(c.id_mobil)}')">Hapus</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderBrands() {
+    const tbody = el("brandTableBody");
+    if (!tbody) return;
+    if (DATA.brands.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Belum ada data master merk.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = DATA.brands.map(b => {
+      const count = DATA.cars.filter(c => String(c.merk || "").trim().toLowerCase() === String(b.nama_merk || "").trim().toLowerCase()).length;
       return `
         <tr>
-          <td data-label="Foto" style="width:110px;">
-            <div style="width:96px;height:62px;border-radius:8px;overflow:hidden;border:1px solid var(--border);">
-              ${G.renderCarImage(c.foto_url, c.nama_mobil, "car-img")}
-            </div>
-          </td>
-          <td data-label="Mobil & Plat">
-            <strong>${G.escapeHtml(c.nama_mobil)}</strong>
-            <div class="small text-muted">${G.escapeHtml(c.plat_nomor)} • ${G.escapeHtml(c.tahun)}</div>
-          </td>
-          <td data-label="Spesifikasi" class="small">
-            ${G.escapeHtml(c.transmisi)} • ${G.escapeHtml(c.kapasitas)} Kursi
-            <div class="text-muted">${G.escapeHtml(c.merk)}</div>
-          </td>
-          <td data-label="Harga Sewa">
-            <strong>${G.formatRupiah(c.harga_24jam)}</strong><span class="small text-muted">/24j</span>
-            ${Number(c.harga_12jam) > 0 ? `<div class="small text-muted">${G.formatRupiah(c.harga_12jam)}/12j</div>` : ""}
-          </td>
-          <td data-label="Status">
-            <select class="form-control" style="padding:5px 8px;width:auto;" onchange="window.__changeCarStatus('${G.escapeHtml(c.id_mobil)}', this.value)">
-              <option value="Tersedia" ${c.status === "Tersedia" ? "selected" : ""}>Tersedia</option>
-              <option value="Disewa" ${c.status === "Disewa" ? "selected" : ""}>Disewa</option>
-              <option value="Servis" ${c.status === "Servis" ? "selected" : ""}>Servis</option>
-            </select>
-            <div style="margin-top:4px;"><span class="badge ${stCls}">${G.escapeHtml(c.status)}</span></div>
-          </td>
+          <td data-label="Nama Merk"><strong>${G.escapeHtml(b.nama_merk)}</strong></td>
+          <td data-label="Jumlah Unit"><span class="badge badge-info">${count} Mobil</span></td>
           <td data-label="Aksi">
-            <div style="display:flex;gap:6px;width:100%;">
-              <button class="btn btn-ghost btn-sm" onclick="window.__openCarModal('${G.escapeHtml(c.id_mobil)}')">Edit</button>
-              <button class="btn btn-danger btn-sm" onclick="window.__deleteCar('${G.escapeHtml(c.id_mobil)}')">Hapus</button>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="btn btn-ghost btn-sm" onclick="window.__openBrandModal('${G.escapeHtml(b.id_merk)}')">Edit</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="window.__deleteBrand('${G.escapeHtml(b.id_merk)}')">Hapus</button>
             </div>
           </td>
         </tr>
       `;
     }).join("");
+  }
+
+  window.__openBrandModal = function (idMerk) {
+    el("brandForm").reset();
+    el("brandId").value = "";
+    el("brandModalTitle").textContent = idMerk ? "Edit Merk Mobil" : "Tambah Merk Mobil";
+    if (idMerk) {
+      const b = DATA.brands.find(x => x.id_merk === idMerk);
+      if (b) {
+        el("brandId").value = b.id_merk;
+        el("brandName").value = b.nama_merk || "";
+      }
+    }
+    el("brandModal").classList.add("open");
+  };
+
+  async function handleSaveBrand(e) {
+    e.preventDefault();
+    const btn = el("saveBrandBtn");
+    btn.disabled = true;
+    G.uiLoading("Menyimpan master merk...", "Menyimpan Merk");
+    try {
+      const res = await adminApi("save_brand", {
+        data: { id_merk: el("brandId").value, nama_merk: el("brandName").value.trim() }
+      });
+      if (!res.ok) throw new Error(res.error);
+      window.__closeModal("brandModal");
+      G.uiLoading("Memperbarui master merk...", "Sinkronisasi Data");
+      await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Berhasil", "Master merk berhasil disimpan.", "success");
+    } catch (err) {
+      G.uiClose();
+      await G.uiAlert("Gagal Menyimpan Merk", err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  window.__deleteBrand = async function (idMerk) {
+    const ok = await G.uiConfirm("Hapus Merk", "Yakin ingin menghapus merk ini dari master?", "Ya, Hapus", "btn-danger");
+    if (!ok) return;
+    G.uiLoading("Menghapus merk...", "Menghapus");
+    try {
+      const res = await adminApi("delete_brand", { id_merk: idMerk });
+      if (!res.ok) throw new Error(res.error);
+      G.uiLoading("Memperbarui daftar merk...", "Sinkronisasi Data");
+      await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Terhapus", "Merk berhasil dihapus.", "info");
+    } catch (err) {
+      G.uiClose();
+      await G.uiAlert("Gagal Menghapus", err.message, "error");
+    }
+  };
+
+  function renderTypes() {
+    const tbody = el("typeTableBody");
+    if (!tbody) return;
+    if (DATA.types.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Belum ada data master type.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = DATA.types.map(tp => {
+      const count = DATA.cars.filter(c => String(c.type_mobil || "").trim().toLowerCase() === String(tp.nama_type || "").trim().toLowerCase()).length;
+      return `
+        <tr>
+          <td data-label="Nama Type"><strong>${G.escapeHtml(tp.nama_type)}</strong></td>
+          <td data-label="Jumlah Unit"><span class="badge badge-info">${count} Mobil</span></td>
+          <td data-label="Aksi">
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="btn btn-ghost btn-sm" onclick="window.__openTypeModal('${G.escapeHtml(tp.id_type)}')">Edit</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="window.__deleteType('${G.escapeHtml(tp.id_type)}')">Hapus</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  window.__openTypeModal = function (idType) {
+    el("typeForm").reset();
+    el("typeId").value = "";
+    el("typeModalTitle").textContent = idType ? "Edit Type Mobil" : "Tambah Type Mobil";
+    if (idType) {
+      const tp = DATA.types.find(x => x.id_type === idType);
+      if (tp) {
+        el("typeId").value = tp.id_type;
+        el("typeName").value = tp.nama_type || "";
+      }
+    }
+    el("typeModal").classList.add("open");
+  };
+
+  async function handleSaveType(e) {
+    e.preventDefault();
+    const btn = el("saveTypeBtn");
+    btn.disabled = true;
+    G.uiLoading("Menyimpan master type...", "Menyimpan Type");
+    try {
+      const res = await adminApi("save_type", {
+        data: { id_type: el("typeId").value, nama_type: el("typeName").value.trim() }
+      });
+      if (!res.ok) throw new Error(res.error);
+      window.__closeModal("typeModal");
+      G.uiLoading("Memperbarui master type...", "Sinkronisasi Data");
+      await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Berhasil", "Master type berhasil disimpan.", "success");
+    } catch (err) {
+      G.uiClose();
+      await G.uiAlert("Gagal Menyimpan Type", err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  window.__deleteType = async function (idType) {
+    const ok = await G.uiConfirm("Hapus Type", "Yakin ingin menghapus type ini dari master?", "Ya, Hapus", "btn-danger");
+    if (!ok) return;
+    G.uiLoading("Menghapus type...", "Menghapus");
+    try {
+      const res = await adminApi("delete_type", { id_type: idType });
+      if (!res.ok) throw new Error(res.error);
+      G.uiLoading("Memperbarui daftar type...", "Sinkronisasi Data");
+      await loadDashboard(true);
+      G.uiClose();
+      await G.uiAlert("Terhapus", "Type berhasil dihapus.", "info");
+    } catch (err) {
+      G.uiClose();
+      await G.uiAlert("Gagal Menghapus", err.message, "error");
+    }
+  };
+
+  function populateCarMasterSelects(selectedBrand, selectedType) {
+    const brandSel = el("carBrand");
+    const typeSel = el("carType");
+    const brandNames = DATA.brands.map(b => String(b.nama_merk || "").trim()).filter(Boolean);
+    if (selectedBrand && !brandNames.some(n => n.toLowerCase() === selectedBrand.toLowerCase())) {
+      brandNames.unshift(selectedBrand);
+    }
+    brandSel.innerHTML = '<option value="">-- Pilih Merk --</option>' +
+      brandNames.map(n => `<option value="${G.escapeHtml(n)}">${G.escapeHtml(n)}</option>`).join("");
+    if (selectedBrand) brandSel.value = selectedBrand;
+
+    const typeNames = DATA.types.map(tp => String(tp.nama_type || "").trim()).filter(Boolean);
+    if (selectedType && !typeNames.some(n => n.toLowerCase() === selectedType.toLowerCase())) {
+      typeNames.unshift(selectedType);
+    }
+    typeSel.innerHTML = '<option value="">-- Pilih Type --</option>' +
+      typeNames.map(n => `<option value="${G.escapeHtml(n)}">${G.escapeHtml(n)}</option>`).join("");
+    if (selectedType) typeSel.value = selectedType;
   }
 
   window.__openCarModal = function (idMobil) {
@@ -783,18 +1122,21 @@
     el("carPhotoPreviewWrap").innerHTML = "";
     el("carUploadStatus").className = "upload-status text-muted";
     el("carUploadStatus").textContent = "";
-    PENDING_CAR_PHOTO = null;
+    CAR_PHOTO_ITEMS = [];
     CAR_PHOTO_UPLOAD_ERROR = false;
     IS_UPLOADING_PHOTO = false;
     el("carModalTitle").textContent = idMobil ? "Edit Data Mobil" : "Tambah Mobil Baru";
     el("saveCarBtn").textContent = idMobil ? "Update Mobil" : "Simpan Mobil";
 
+    let selBrand = "";
+    let selType = "";
     if (idMobil) {
       const c = DATA.cars.find(x => x.id_mobil === idMobil);
       if (c) {
         el("carId").value = c.id_mobil;
         el("carName").value = c.nama_mobil || "";
-        el("carBrand").value = c.merk || "";
+        selBrand = c.merk || "";
+        selType = c.type_mobil || "";
         el("carPlate").value = c.plat_nomor || "";
         el("carYear").value = c.tahun || 2023;
         el("carTrans").value = c.transmisi || "Matic";
@@ -804,15 +1146,53 @@
         el("carStatus").value = c.status || "Tersedia";
         el("carPhotoUrl").value = c.foto_url || "";
         el("carDesc").value = c.deskripsi || "";
+        CAR_PHOTO_ITEMS = G.parseCarImages(c.foto_url).map(u => ({ kind: "url", url: u }));
       }
     }
-    updateCarPhotoPreview();
+    populateCarMasterSelects(selBrand, selType);
+    renderCarPhotoItems();
     el("carModal").classList.add("open");
   };
 
+  function renderCarPhotoItems() {
+    const wrap = el("carPhotoPreviewWrap");
+    if (!CAR_PHOTO_ITEMS.length) {
+      wrap.innerHTML = "";
+      return;
+    }
+    wrap.innerHTML =
+      '<div class="multi-photo-grid">' +
+      CAR_PHOTO_ITEMS.map((item, idx) => {
+        const imgHtml = item.kind === "pending"
+          ? '<img src="' + item.previewDataUrl + '" alt="Preview Foto ' + (idx + 1) + '">'
+          : G.renderCarImage(item.url, "Foto " + (idx + 1), "");
+        const tag = idx === 0 ? "Utama" : (item.kind === "pending" ? "Baru" : "Drive");
+        return `
+          <div class="multi-photo-item">
+            ${imgHtml}
+            <span class="multi-photo-tag">${tag}</span>
+            <button type="button" class="multi-photo-remove" title="Hapus foto ini" onclick="window.__removeCarPhotoItem(${idx})">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        `;
+      }).join("") +
+      "</div>";
+  }
 
-  async function handlePhotoUpload(file, target) {
-    if (!file) return;
+  window.__removeCarPhotoItem = function (idx) {
+    CAR_PHOTO_ITEMS.splice(idx, 1);
+    el("carPhotoUrl").value = G.serializeCarImages(
+      CAR_PHOTO_ITEMS.filter(x => x.kind === "url").map(x => x.url)
+    );
+    renderCarPhotoItems();
+  };
+
+  async function handlePhotoUpload(filesOrFile, target) {
+    if (!filesOrFile) return;
+    const files = filesOrFile instanceof FileList ? Array.from(filesOrFile) : [filesOrFile];
+    if (!files.length) return;
+
     const isCar = target === "car";
     const statusEl = el(isCar ? "carUploadStatus" : "ciUploadStatus");
 
@@ -827,34 +1207,39 @@
       statusEl.className = "upload-status text-warning";
       statusEl.textContent = "Memproses & mengompresi foto...";
 
-      const compressed = await G.compressImageForUpload(file, 1280, 0.8);
-      const pendingPayload = {
-        base64: compressed.base64,
-        mimeType: compressed.mimeType,
-        fileName: compressed.fileName,
-        previewDataUrl: compressed.previewDataUrl
-      };
-
       if (isCar) {
-        PENDING_CAR_PHOTO = pendingPayload;
+        for (let i = 0; i < files.length; i++) {
+          const compressed = await G.compressImageForUpload(files[i], 1280, 0.8);
+          CAR_PHOTO_ITEMS.push({
+            kind: "pending",
+            base64: compressed.base64,
+            mimeType: compressed.mimeType,
+            fileName: compressed.fileName,
+            previewDataUrl: compressed.previewDataUrl
+          });
+        }
         CAR_PHOTO_UPLOAD_ERROR = false;
-        el("carPhotoPreviewWrap").innerHTML =
-          '<div class="small text-info" style="margin-top:6px;">Preview foto baru (akan diupload ke Google Drive saat klik Simpan)</div>' +
-          '<img src="' + compressed.previewDataUrl + '" alt="Preview Mobil" class="preview-thumb">';
+        renderCarPhotoItems();
+        statusEl.className = "upload-status text-success";
+        statusEl.textContent = CAR_PHOTO_ITEMS.length + " foto siap (akan diupload ke Google Drive saat Simpan).";
       } else {
-        PENDING_CI_PHOTO = pendingPayload;
+        const compressed = await G.compressImageForUpload(files[0], 1280, 0.8);
+        PENDING_CI_PHOTO = {
+          base64: compressed.base64,
+          mimeType: compressed.mimeType,
+          fileName: compressed.fileName,
+          previewDataUrl: compressed.previewDataUrl
+        };
         el("ciPhotoPreviewWrap").innerHTML =
-          '<div class="small text-info" style="margin-top:6px;">Preview foto kondisi (akan diupload ke Google Drive saat Selesaikan)</div>' +
+          '<div class="small text-info" style="margin-top:6px;">Preview foto kondisi (akan diupload saat Selesaikan)</div>' +
           '<img src="' + compressed.previewDataUrl + '" alt="Preview Kondisi" class="preview-thumb">';
+        statusEl.className = "upload-status text-success";
+        statusEl.textContent = "Foto siap diupload saat Selesaikan Pengembalian.";
       }
-
-      statusEl.className = "upload-status text-success";
-      statusEl.textContent = "Foto siap diupload saat tombol Simpan diklik.";
       G.uiClose();
     } catch (err) {
       G.uiClose();
       if (isCar) {
-        PENDING_CAR_PHOTO = null;
         CAR_PHOTO_UPLOAD_ERROR = true;
       } else {
         PENDING_CI_PHOTO = null;
@@ -875,19 +1260,6 @@
     }
   }
 
-  function updateCarPhotoPreview() {
-    const url = el("carPhotoUrl").value.trim();
-    const wrap = el("carPhotoPreviewWrap");
-    if (!url) {
-      wrap.innerHTML = "";
-      return;
-    }
-    const info = G.resolveImageUrls(url);
-    wrap.innerHTML =
-      (info.isDrive ? `<div class="small text-success" style="margin-top:6px;">Link Google Drive terdeteksi (ID: ${G.escapeHtml(info.fileId)})</div>` : "") +
-      G.renderCarImage(url, "Preview Mobil", "preview-thumb");
-  }
-
   async function handleSaveCar(e) {
     e.preventDefault();
     if (IS_UPLOADING_PHOTO) {
@@ -899,24 +1271,36 @@
     btn.textContent = "Menyimpan...";
 
     try {
-      if (PENDING_CAR_PHOTO) {
-        G.uiLoading("Mengunggah foto mobil ke Google Drive...", "Mengunggah Foto");
+      const pendingCount = CAR_PHOTO_ITEMS.filter(x => x.kind === "pending").length;
+      let uploadedIdx = 0;
+
+      for (let i = 0; i < CAR_PHOTO_ITEMS.length; i++) {
+        const item = CAR_PHOTO_ITEMS[i];
+        if (item.kind !== "pending") continue;
+        uploadedIdx++;
+        G.uiLoading(
+          "Mengunggah foto " + uploadedIdx + " dari " + pendingCount + " ke Google Drive...",
+          "Mengunggah Foto"
+        );
         const prefix = (el("carPlate").value.trim() || "mobil").replace(/\s+/g, "-");
         const upRes = await adminApi("upload_drive_image", {
           data: {
-            base64: PENDING_CAR_PHOTO.base64,
-            mimeType: PENDING_CAR_PHOTO.mimeType,
-            fileName: prefix + "-" + Date.now() + ".jpg"
+            base64: item.base64,
+            mimeType: item.mimeType,
+            fileName: prefix + "-" + Date.now() + "-" + uploadedIdx + ".jpg"
           }
         });
         if (!upRes.ok) {
           throw new Error("UPLOAD_FAILED:" + (upRes.error || "Gagal upload foto ke Google Drive."));
         }
-        el("carPhotoUrl").value = upRes.url;
-        PENDING_CAR_PHOTO = null;
-        CAR_PHOTO_UPLOAD_ERROR = false;
+        CAR_PHOTO_ITEMS[i] = { kind: "url", url: upRes.url };
+      }
+
+      const finalFotoUrl = G.serializeCarImages(CAR_PHOTO_ITEMS.map(x => x.url));
+      el("carPhotoUrl").value = finalFotoUrl;
+      if (pendingCount > 0) {
         el("carUploadStatus").className = "upload-status text-success";
-        el("carUploadStatus").textContent = "Foto berhasil diupload ke Google Drive.";
+        el("carUploadStatus").textContent = "Semua foto berhasil diupload ke Google Drive.";
       }
 
       G.uiLoading("Menyimpan data mobil ke Google Sheets...", "Menyimpan Mobil");
@@ -925,6 +1309,7 @@
           id_mobil: el("carId").value,
           nama_mobil: el("carName").value.trim(),
           merk: el("carBrand").value.trim(),
+          type_mobil: el("carType").value.trim(),
           plat_nomor: el("carPlate").value.trim(),
           tahun: Number(el("carYear").value),
           transmisi: el("carTrans").value,
@@ -932,7 +1317,7 @@
           harga_24jam: G.parseRupiah(el("carPrice24").value),
           harga_12jam: G.parseRupiah(el("carPrice12").value),
           status: el("carStatus").value,
-          foto_url: el("carPhotoUrl").value.trim(),
+          foto_url: finalFotoUrl,
           deskripsi: el("carDesc").value.trim()
         }
       });
@@ -944,11 +1329,13 @@
       await G.uiAlert("Berhasil", "Data mobil berhasil disimpan.", "success");
     } catch (err) {
       G.uiClose();
+      const hasPending = CAR_PHOTO_ITEMS.some(x => x.kind === "pending");
       const rawMsg = String(err && err.message ? err.message : err);
-      const isUploadErr = rawMsg.indexOf("UPLOAD_FAILED:") === 0 || PENDING_CAR_PHOTO !== null;
+      const isUploadErr = rawMsg.indexOf("UPLOAD_FAILED:") === 0 || hasPending;
       const cleanMsg = rawMsg.replace(/^UPLOAD_FAILED:/, "");
       if (isUploadErr) {
         CAR_PHOTO_UPLOAD_ERROR = true;
+        renderCarPhotoItems();
         el("carUploadStatus").className = "upload-status text-danger";
         el("carUploadStatus").textContent = "Gagal upload: " + cleanMsg;
         await G.uiAlert("Upload Foto Gagal", cleanMsg + "\n\nData mobil tidak disimpan karena upload foto gagal.", "error");

@@ -11,6 +11,10 @@
 (function (global) {
   "use strict";
 
+  document.addEventListener("contextmenu", function (e) {
+    e.preventDefault();
+  });
+
   const te = new TextEncoder();
   const td = new TextDecoder();
 
@@ -364,8 +368,39 @@
       '</svg>'
     );
 
+  function parseCarImages(raw) {
+    if (Array.isArray(raw)) {
+      return raw.map(x => String(x || "").trim()).filter(Boolean);
+    }
+    const str = String(raw || "").trim();
+    if (!str) return [];
+    if (str.charAt(0) === "[") {
+      try {
+        const parsed = JSON.parse(str);
+        if (Array.isArray(parsed)) {
+          return parsed.map(x => String(x || "").trim()).filter(Boolean);
+        }
+      } catch (_) {}
+    }
+    if (str.indexOf("\n") !== -1) {
+      return str.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    }
+    if (str.indexOf(",") !== -1 && str.indexOf("http") !== -1) {
+      return str.split(",").map(s => s.trim()).filter(Boolean);
+    }
+    return [str];
+  }
+
+  function serializeCarImages(urls) {
+    const clean = (Array.isArray(urls) ? urls : [urls]).map(x => String(x || "").trim()).filter(Boolean);
+    if (clean.length === 0) return "";
+    if (clean.length === 1) return clean[0];
+    return JSON.stringify(clean);
+  }
+
   function renderCarImage(url, alt, className) {
-    const info = resolveImageUrls(url);
+    const first = parseCarImages(url)[0] || "";
+    const info = resolveImageUrls(first);
     const cls = className || "car-img";
     const safeAlt = escapeHtml(alt || "Armada Mobil");
     if (!info.primary) {
@@ -378,6 +413,57 @@
       ' onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;this.dataset.fb=\'\';}else{this.onerror=null;this.src=\'' + CAR_PLACEHOLDER_SVG + '\';}">'
     );
   }
+
+  function renderCarGallery(rawUrl, alt, className) {
+    const urls = parseCarImages(rawUrl);
+    const cls = className || "car-img";
+    const safeAlt = escapeHtml(alt || "Armada Mobil");
+    if (urls.length <= 1) {
+      return renderCarImage(urls[0] || "", alt, cls);
+    }
+    const resolved = urls.map(u => {
+      const info = resolveImageUrls(u);
+      return { p: info.primary || CAR_PLACEHOLDER_SVG, f: info.fallback || "" };
+    });
+    const first = resolved[0];
+    const encoded = escapeHtml(JSON.stringify(resolved));
+    return (
+      '<div class="car-gallery" data-idx="0" data-slides="' + encoded + '">' +
+        '<img src="' + escapeHtml(first.p) + '"' + (first.f ? ' data-fb="' + escapeHtml(first.f) + '"' : "") +
+        ' alt="' + safeAlt + '" class="' + cls + '" loading="lazy"' +
+        ' onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;this.dataset.fb=\'\';}else{this.onerror=null;this.src=\'' + CAR_PLACEHOLDER_SVG + '\';}">' +
+        '<button type="button" class="gallery-nav prev" aria-label="Foto sebelumnya" onclick="event.stopPropagation();window.__rgStepGallery(this,-1)">' +
+          '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
+        '</button>' +
+        '<button type="button" class="gallery-nav next" aria-label="Foto berikutnya" onclick="event.stopPropagation();window.__rgStepGallery(this,1)">' +
+          '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' +
+        '</button>' +
+        '<span class="gallery-count">' +
+          '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
+          '<span class="gallery-count-txt">1/' + resolved.length + '</span>' +
+        '</span>' +
+      '</div>'
+    );
+  }
+
+  global.__rgStepGallery = function (btn, delta) {
+    const box = btn.closest(".car-gallery");
+    if (!box) return;
+    let slides = [];
+    try { slides = JSON.parse(box.dataset.slides || "[]"); } catch (_) {}
+    if (slides.length < 2) return;
+    let idx = (Number(box.dataset.idx) || 0) + delta;
+    if (idx < 0) idx = slides.length - 1;
+    if (idx >= slides.length) idx = 0;
+    box.dataset.idx = String(idx);
+    const img = box.querySelector("img");
+    if (img) {
+      img.dataset.fb = slides[idx].f || "";
+      img.src = slides[idx].p;
+    }
+    const txt = box.querySelector(".gallery-count-txt");
+    if (txt) txt.textContent = (idx + 1) + "/" + slides.length;
+  };
 
 
   function compressImageForUpload(file, maxWidth, quality) {
@@ -709,7 +795,10 @@
     unlockConfig: unlockConfig,
     extractDriveFileId: extractDriveFileId,
     resolveImageUrls: resolveImageUrls,
+    parseCarImages: parseCarImages,
+    serializeCarImages: serializeCarImages,
     renderCarImage: renderCarImage,
+    renderCarGallery: renderCarGallery,
     compressImageForUpload: compressImageForUpload,
     CAR_PLACEHOLDER_SVG: CAR_PLACEHOLDER_SVG,
     escapeHtml: escapeHtml,

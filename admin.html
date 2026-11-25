@@ -2,7 +2,7 @@
 <html lang="id" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Panel Admin - Restu Bumi</title>
   <script>
     try { document.documentElement.setAttribute("data-theme", localStorage.getItem("rb_theme_mode") || "light"); } catch (_) {}
@@ -123,30 +123,75 @@
         </div>
       </section>
 
-      <!-- TAB 3: ARMADA -->
+      <!-- TAB 3: ARMADA (MOBIL, MERK, TYPE) -->
       <section id="tabArmada" class="tab-panel hidden">
-        <div class="panel-card">
-          <div class="panel-header">
-            <div>
-              <h3>Manajemen Armada Mobil</h3>
-              <div class="small text-muted">Ambil foto langsung dari kamera HP/galeri — otomatis masuk ke folder Google Drive.</div>
+        <div class="subtab-bar" role="tablist" aria-label="Submenu Mobil">
+          <button type="button" class="subtab-btn active" data-subtab="subTabMobil">Mobil</button>
+          <button type="button" class="subtab-btn" data-subtab="subTabMerk">Merk</button>
+          <button type="button" class="subtab-btn" data-subtab="subTabType">Type</button>
+        </div>
+
+        <!-- SUBTAB: MOBIL -->
+        <div id="subTabMobil" class="subtab-panel">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3>Daftar Armada Mobil</h3>
+                <div class="small text-muted">Kelola unit mobil, foto multi-angle Google Drive, tarif &amp; status sewa.</div>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" onclick="window.__openCarModal()">+ Tambah Mobil</button>
             </div>
-            <button type="button" class="btn btn-primary btn-sm" onclick="window.__openCarModal()">+ Tambah Mobil</button>
+            <div id="adminCarGrid" class="car-grid admin-car-grid"></div>
           </div>
-          <div class="table-wrap">
-            <table class="responsive-table">
-              <thead>
-                <tr>
-                  <th>Foto</th>
-                  <th>Mobil &amp; Plat</th>
-                  <th>Spesifikasi</th>
-                  <th>Harga Sewa</th>
-                  <th>Status</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody id="carTableBody"></tbody>
-            </table>
+        </div>
+
+        <!-- SUBTAB: MASTER MERK -->
+        <div id="subTabMerk" class="subtab-panel hidden">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3>Master Merk Mobil</h3>
+                <div class="small text-muted">Data referensi merk mobil (Toyota, Honda, Daihatsu, dll).</div>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" onclick="window.__openBrandModal()">+ Tambah Merk</button>
+            </div>
+            <div class="table-wrap">
+              <table class="responsive-table">
+                <thead>
+                  <tr>
+                    <th>Nama Merk</th>
+                    <th>Jumlah Unit</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="brandTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB: MASTER TYPE -->
+        <div id="subTabType" class="subtab-panel hidden">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3>Master Type Mobil</h3>
+                <div class="small text-muted">Kategori type mobil (MPV, SUV, City Car, Sedan, dll).</div>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" onclick="window.__openTypeModal()">+ Tambah Type</button>
+            </div>
+            <div class="table-wrap">
+              <table class="responsive-table">
+                <thead>
+                  <tr>
+                    <th>Nama Type</th>
+                    <th>Jumlah Unit</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="typeTableBody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
@@ -273,7 +318,7 @@
               <div class="small text-muted">Semua foto yang diambil lewat kamera HP / galeri di web otomatis tersimpan ke folder Google Drive ini.</div>
             </div>
 
-            <button type="submit" class="btn btn-primary" id="saveSettingsBtn"Simpan Pengaturan</button>
+            <button type="submit" class="btn btn-primary" id="saveSettingsBtn">Simpan Pengaturan</button>
           </form>
         </div>
       </section>
@@ -324,22 +369,33 @@
           <div class="form-grid-2">
             <div class="form-group">
               <label>Nama Mobil *</label>
-              <input type="text" id="carName" class="form-control" required placeholder="Toyota Avanza Veloz" />
+              <input type="text" id="carName" class="form-control" required placeholder="Contoh: Avanza Veloz" />
             </div>
             <div class="form-group">
-              <label>Merk</label>
-              <input type="text" id="carBrand" class="form-control" placeholder="Toyota" />
+              <label>Plat Nomor *</label>
+              <input type="text" id="carPlate" class="form-control" required placeholder="B 1234 ABC" />
             </div>
           </div>
 
           <div class="form-grid-2">
             <div class="form-group">
-              <label>Plat Nomor *</label>
-              <input type="text" id="carPlate" class="form-control" required placeholder="B 1234 ABC" />
+              <label>Merk *</label>
+              <select id="carBrand" class="form-control" required></select>
             </div>
+            <div class="form-group">
+              <label>Type *</label>
+              <select id="carType" class="form-control" required></select>
+            </div>
+          </div>
+
+          <div class="form-grid-2">
             <div class="form-group">
               <label>Tahun</label>
               <input type="number" id="carYear" class="form-control" value="2023" />
+            </div>
+            <div class="form-group">
+              <label>Kapasitas Kursi</label>
+              <input type="number" id="carSeats" class="form-control" value="7" min="2" max="20" />
             </div>
           </div>
 
@@ -352,8 +408,12 @@
               </select>
             </div>
             <div class="form-group">
-              <label>Kapasitas Kursi</label>
-              <input type="number" id="carSeats" class="form-control" value="7" min="2" max="20" />
+              <label>Status Mobil</label>
+              <select id="carStatus" class="form-control">
+                <option value="Tersedia">Tersedia</option>
+                <option value="Disewa">Disewa</option>
+                <option value="Servis">Servis</option>
+              </select>
             </div>
           </div>
 
@@ -369,22 +429,13 @@
           </div>
 
           <div class="form-group">
-            <label>Status Mobil</label>
-            <select id="carStatus" class="form-control">
-              <option value="Tersedia">Tersedia</option>
-              <option value="Disewa">Disewa</option>
-              <option value="Servis">Servis</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>Foto Mobil (Upload ke Google Drive saat Simpan)</label>
+            <label>Foto Mobil (Bisa Banyak Foto • Upload ke Drive saat Simpan)</label>
             <div class="upload-actions-grid">
               <button type="button" class="btn btn-primary btn-sm" id="carTakePhotoBtn"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Ambil Foto Kamera HP</button>
               <button type="button" class="btn btn-ghost btn-sm" id="carPickGalleryBtn"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Pilih dari Galeri</button>
             </div>
             <input type="file" id="carCameraInput" accept="image/*" capture="environment" class="hidden" />
-            <input type="file" id="carGalleryInput" accept="image/*" class="hidden" />
+            <input type="file" id="carGalleryInput" accept="image/*" multiple class="hidden" />
             <div id="carUploadStatus" class="upload-status text-muted"></div>
             <input type="hidden" id="carPhotoUrl" />
             <div id="carPhotoPreviewWrap"></div>
@@ -398,6 +449,161 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-ghost" onclick="window.__closeModal('carModal')">Batal</button>
           <button type="submit" class="btn btn-primary" id="saveCarBtn">Simpan Mobil</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: MASTER MERK -->
+  <div id="brandModal" class="modal-backdrop">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3 id="brandModalTitle">Tambah Merk Mobil</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__closeModal('brandModal')">Tutup</button>
+      </div>
+      <form id="brandForm">
+        <div class="modal-body">
+          <input type="hidden" id="brandId" />
+          <div class="form-group">
+            <label>Nama Merk *</label>
+            <input type="text" id="brandName" class="form-control" required placeholder="Contoh: Toyota, Honda, Mitsubishi" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="window.__closeModal('brandModal')">Batal</button>
+          <button type="submit" class="btn btn-primary" id="saveBrandBtn">Simpan Merk</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: MASTER TYPE -->
+  <div id="typeModal" class="modal-backdrop">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3 id="typeModalTitle">Tambah Type Mobil</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__closeModal('typeModal')">Tutup</button>
+      </div>
+      <form id="typeForm">
+        <div class="modal-body">
+          <input type="hidden" id="typeId" />
+          <div class="form-group">
+            <label>Nama Type *</label>
+            <input type="text" id="typeName" class="form-control" required placeholder="Contoh: MPV, SUV, City Car, Sedan" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="window.__closeModal('typeModal')">Batal</button>
+          <button type="submit" class="btn btn-primary" id="saveTypeBtn">Simpan Type</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT TRANSAKSI SEWA -->
+  <div id="editTrxModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Edit Transaksi Sewa</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__closeModal('editTrxModal')">Tutup</button>
+      </div>
+      <form id="editTrxForm">
+        <div class="modal-body">
+          <input type="hidden" id="editTrxId" />
+          <div class="form-group">
+            <label>Pilih Mobil *</label>
+            <select id="editTrxCarId" class="form-control" required></select>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Nama Pelanggan *</label>
+              <input type="text" id="editTrxName" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label>No. WhatsApp *</label>
+              <input type="tel" id="editTrxWa" class="form-control" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>No. KTP / SIM</label>
+              <input type="text" id="editTrxNik" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Alamat Pelanggan</label>
+              <input type="text" id="editTrxAddr" class="form-control" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Mulai Sewa *</label>
+              <input type="datetime-local" id="editTrxStart" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label>Batas Waktu Selesai *</label>
+              <input type="datetime-local" id="editTrxEnd" class="form-control" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Metode Ambil / Antar</label>
+              <select id="editTrxDeliveryMethod" class="form-control">
+                <option value="Ambil Sendiri">Ambil Sendiri di Garasi (Rp 0)</option>
+                <option value="Diantar">Diantar ke Pelanggan (+Charge)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Biaya Antar (Rp)</label>
+              <input type="text" inputmode="numeric" id="editTrxDeliveryFee" class="form-control rupiah-input" value="Rp 0" />
+            </div>
+          </div>
+
+          <div class="form-group hidden" id="editTrxDeliveryAddrWrap">
+            <label>Alamat Pengantaran</label>
+            <input type="text" id="editTrxDeliveryAddr" class="form-control" />
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Layanan Sopir</label>
+              <select id="editTrxDriverMethod" class="form-control">
+                <option value="Lepas Kunci">Lepas Kunci</option>
+                <option value="Dengan Sopir">Dengan Sopir</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Biaya Sopir Total (Rp)</label>
+              <input type="text" inputmode="numeric" id="editTrxDriverFee" class="form-control rupiah-input" value="Rp 0" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>KM Awal Mobil</label>
+              <input type="number" id="editTrxKmAwal" class="form-control" value="0" />
+            </div>
+            <div class="form-group">
+              <label>Sudah Dibayar / DP (Rp)</label>
+              <input type="text" inputmode="numeric" id="editTrxDp" class="form-control rupiah-input" value="Rp 0" />
+            </div>
+          </div>
+
+          <div class="summary-box">
+            <div class="summary-row"><span>Durasi Sewa</span><strong id="editTrxSumDays">1 Hari</strong></div>
+            <div class="summary-row"><span>Subtotal Sewa Mobil</span><span id="editTrxSumBase">Rp 0</span></div>
+            <div class="summary-row"><span>Biaya Antar</span><span id="editTrxSumDeliv">Rp 0</span></div>
+            <div class="summary-row"><span>Biaya Sopir</span><span id="editTrxSumDrv">Rp 0</span></div>
+            <div class="summary-row total"><span>Total Tagihan</span><span id="editTrxSumTotal">Rp 0</span></div>
+            <div class="summary-row"><span>Sisa Tagihan</span><strong id="editTrxSumRemain">Rp 0</strong></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="window.__closeModal('editTrxModal')">Batal</button>
+          <button type="submit" class="btn btn-primary" id="saveEditTrxBtn">Simpan Perubahan</button>
         </div>
       </form>
     </div>

@@ -110,7 +110,8 @@
     const status = el("filterStatus").value;
 
     const filtered = CARS.filter(c => {
-      const textMatch = !q || (c.nama_mobil + " " + c.merk + " " + c.tahun + " " + c.deskripsi).toLowerCase().includes(q);
+      const hay = [c.nama_mobil, c.merk, c.type_mobil, c.tahun, c.deskripsi].join(" ").toLowerCase();
+      const textMatch = !q || hay.includes(q);
       const transMatch = trans === "ALL" || c.transmisi === trans;
       const statusMatch = status === "ALL" || c.status === status;
       return textMatch && transMatch && statusMatch;
@@ -124,26 +125,27 @@
     el("carGrid").innerHTML = filtered.map(c => {
       const badgeCls = c.status === "Tersedia" ? "badge-success" : (c.status === "Disewa" ? "badge-warning" : "badge-danger");
       const disabled = c.status !== "Tersedia";
+      const metaParts = [c.merk, c.type_mobil, c.tahun].filter(Boolean).map(v => G.escapeHtml(v));
       return `
         <article class="car-card">
           <div class="car-media">
-            ${G.renderCarImage(c.foto_url, c.nama_mobil, "car-img")}
+            ${G.renderCarGallery(c.foto_url, c.nama_mobil, "car-img")}
             <span class="badge ${badgeCls} car-badge-float">${G.escapeHtml(c.status)}</span>
           </div>
           <div class="car-body">
-            <div>
+            <div class="car-head">
               <div class="car-title">${G.escapeHtml(c.nama_mobil)}</div>
-              <div class="small text-muted">${G.escapeHtml(c.merk || "")} ${c.tahun ? "• " + G.escapeHtml(c.tahun) : ""}</div>
+              ${metaParts.length ? `<div class="car-meta-line">${metaParts.join(" • ")}</div>` : ""}
             </div>
             <div class="car-specs">
               <span class="car-spec-item">${G.escapeHtml(c.transmisi || "Matic")}</span>
               <span class="car-spec-item">${G.escapeHtml(c.kapasitas || 5)} Kursi</span>
               <span class="car-spec-item">${G.escapeHtml(c.plat_nomor || "-")}</span>
             </div>
-            ${c.deskripsi ? `<p class="small text-muted">${G.escapeHtml(c.deskripsi)}</p>` : ""}
+            ${c.deskripsi ? `<p class="car-desc">${G.escapeHtml(c.deskripsi)}</p>` : ""}
             <div class="car-price-row">
               <div>
-                <div class="price-main">${G.formatRupiah(c.harga_24jam)}<span class="small text-muted"> /hari</span></div>
+                <div class="price-main">${G.formatRupiah(c.harga_24jam)}<span class="price-unit"> /24 jam</span></div>
                 ${Number(c.harga_12jam) > 0 ? `<div class="price-sub">12 Jam: ${G.formatRupiah(c.harga_12jam)}</div>` : ""}
               </div>
               <button type="button" class="btn ${disabled ? "btn-ghost" : "btn-primary"} btn-sm"
